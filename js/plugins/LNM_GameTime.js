@@ -7,13 +7,18 @@ var $gameTime = null;
 
 //=============================================================================
 /*:
- * @plugindesc v1.00 Adds control of time to the game, and night / day
+ * @plugindesc v1.2.0 Adds control of time to the game, and night / day
  * cycle. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @param Enabled
  * @desc Set to false if you want to disable the time.
  * @default true
+ *
+ * @param Default Time
+ * @desc Sets the default time when the game start.
+ * Use this format: hour:minutes. eg: 14:05 to start at 2:05pm.
+ * @default 6:00
  *
  * @param Time Lapse Speed
  * @desc Number of frames it takes for one second to pass, in frames
@@ -191,6 +196,18 @@ var $gameTime = null;
  * Time ADD 2 15
  * Advances time by two hours and fifteen minutes.
  *
+ * Time SAVE hour_var minutes_var
+ * Saves the values of hour and minutes to the specified variable numbers.
+ * -- Example:
+ * Time SAVE 2 3
+ * Saves the hours in the variable #0002 and the minutes in the variable #0003
+ *
+ * Time LIMIT time_begin time_end self_switch
+ * Activates the specified switch only between time_begin and time_end.
+ * -- Example:
+ * Time LIMIT 6:00 13:40 A
+ * Activates the self-switch A between 6am and 1:40pm.
+ *
  * ============================================================================
  * Notetags
  * ============================================================================
@@ -223,6 +240,11 @@ var $gameTime = null;
  * Changelog
  * ============================================================================
  *
+ * Version 1.2.0:
+ * + Added the possibility to store current time into variables.
+ * + Added a default time value when starting a new game.
+ * + Added the possibility to change an event's self switch based on time.
+ *
  * Version 1.1.0:
  * -- FeelZoR continues development
  * + Added the possibility to disable the time system.
@@ -240,6 +262,7 @@ var $gameTime = null;
 
 GameEditor.Parameters = PluginManager.parameters('LNM_GameTime');
 GameEditor.TOOLS.TimeEnabled = String(GameEditor.Parameters['Enabled'] || true);
+GameEditor.TOOLS.DefaultStartTimeStringList = String(GameEditor.Parameters['Default Time'] || '6:00').split(':');
 GameEditor.TOOLS.TimeLapse = Number(GameEditor.Parameters['Time Lapse Speed'] || 60);
 GameEditor.TOOLS.TimeShowClock = String(GameEditor.Parameters['Show Clock'] || true);
 GameEditor.TOOLS.TimeTint = [];
@@ -296,12 +319,16 @@ GameTime.prototype.initialize = function() {
     this._oldTimeMinute = -1;
     this._oldTimeHour = -1;
     this.time = new Time();
+	this.switchLimits = [];
 }
 
 GameTime.prototype.update = function() {
 	if (GameEditor.TOOLS.TimeEnabled === 'true') {
 		if (!this._pause) {
 			this.time.update();
+			for (var index in this.switchLimits) {
+				this.switchLimits[index].update(this.time);
+			}
 		}
 		if (!this._pauseTint) {
 			this.updateTint();
@@ -372,6 +399,16 @@ GameTime.prototype.getClock = function(string) {
 
 }
 
+GameTime.prototype.addNewSwitchLimit = function(switchLimit) {
+	if (this.switchLimits == null) { // Assures compatibility with v1.1.0 and older
+		this.switchLimits = [];
+	}
+	
+	if (switchLimit) {
+		this.switchLimits.push(switchLimit);
+	}
+}
+
 //-----------------------------------------------------------------------------
 // Time
 //
@@ -434,6 +471,75 @@ Time.prototype.getTime = function(string) {
                 this.hour.toString() + ':' + this.minute.toString();
             return stringTime;
     }
+}
+
+//-----------------------------------------------------------------------------
+// Switch_Limit
+//
+// Limits the activation of a self switch of an event to a specified time.
+function Switch_Limit(eventIdIn, mapIdIn, timeBeginIn, timeEndIn, selfSwitchIn) {
+	this.eventId = eventIdIn;
+	this.mapId = mapIdIn;
+	
+	this.hourBegin = Number(timeBeginIn[0]);
+	this.minutesBegin = Number(timeBeginIn[1]);
+	
+	this.hourEnd = Number(timeEndIn[0]);
+	this.minutesEnd = Number(timeEndIn[1]);
+	
+	switch (selfSwitchIn) {
+		case 'A': case 'B': case 'C': case 'D':
+			this.selfSwitch = selfSwitchIn;
+			break;
+		default:
+			this.selfSwitch = 'A';
+			break;
+	}
+	
+	this.lastValue = null;
+}
+
+
+Switch_Limit.prototype.update = function(time) {
+	if (this.hourBegin < this.hourEnd || (this.hourBegin === this.hourEnd && this.minutesBegin < this.minutesEnd)) {
+		this.updateSameDay(time);
+	} else {
+		this.updateDifferentDay(time);
+	}
+}
+
+Switch_Limit.prototype.updateSameDay = function(time) {
+	var currentHour = time.getTime('hour');
+	var currentMinutes = time.getTime('minute');
+	if (currentHour > this.hourBegin || (currentHour === this.hourBegin && currentMinutes >= this.minutesBegin)) {
+		if (currentHour < this.hourEnd || (currentHour === this.hourEnd && currentMinutes <= this.minutesEnd)) {
+			this.setSwitchValue(true);
+		}
+		
+		else {
+			this.setSwitchValue(false);
+		}
+	} else {
+		this.setSwitchValue(false);
+	}
+}
+
+Switch_Limit.prototype.updateDifferentDay = function(time) {
+	var currentHour = time.getTime('hour');
+	var currentMinutes = time.getTime('minute');
+	if (currentHour > this.hourBegin || currentHour < this.hourEnd || (currentHour === this.hourBegin && currentMinutes >= this.minutesBegin) || (currentHour === this.hourEnd && currentMinutes <= this.minutesEnd)) {
+		this.setSwitchValue(true);
+	} else {
+		this.setSwitchValue(false);
+	}
+}
+
+Switch_Limit.prototype.setSwitchValue = function(value) {
+	if (this.lastValue != value) {
+		var key = [this.mapId, this.eventId, this.selfSwitch];
+		$gameSelfSwitches.setValue(key, value);
+		this.lastValue = value;
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -558,6 +664,12 @@ DataManager.extractSaveContents = function(contents) {
 	$gameTime.time.__proto__ = ct.__proto__;
 }
 
+var FLZ_GameTime_DataManager_setupNewGame = DataManager.setupNewGame;
+DataManager.setupNewGame = function() {
+    FLZ_GameTime_DataManager_setupNewGame.call(this);
+	$gameTime.setTime(Number(GameEditor.TOOLS.DefaultStartTimeStringList[0]),Number(GameEditor.TOOLS.DefaultStartTimeStringList[1]));
+};
+
 //-----------------------------------------------------------------------------
 // Game_Interpreter
 //
@@ -590,6 +702,16 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
 					var hours = Number(args[1]);
 					var minutes = Number(args[2]);
 					$gameTime.addTime(hours, minutes);
+					break;
+				case 'save':
+					$gameVariables.setValue(Number(args[1]), $gameTime.getTime('hour'));
+					$gameVariables.setValue(Number(args[2]), $gameTime.getTime('minute'));
+					break;
+				case 'limit':
+					var timeBegin = String(args[1]).split(':');
+					var timeEnd = String(args[2]).split(':');
+					var selfSwitch = String(args[3])[0].toUpperCase();
+					$gameTime.addNewSwitchLimit(new Switch_Limit(this.eventId(), this._mapId, timeBegin, timeEnd, selfSwitch));
 					break;
 			}
 		}

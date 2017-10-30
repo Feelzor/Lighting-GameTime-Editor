@@ -3,7 +3,7 @@
 //=============================================================================
 
 /*:
- * @plugindesc v1.00 The core for plugins that have an in-game editor.
+ * @plugindesc v1.1.0 The core for plugins that have an in-game editor.
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @help
@@ -69,6 +69,7 @@ Graphics._onKeyDown = function(event) {
                         $gameEditor.toggle();
                     }
                 }
+				break;
         }
     }
     return this._callEditor_onKeyDown(event);

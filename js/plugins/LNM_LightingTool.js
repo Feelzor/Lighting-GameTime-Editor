@@ -8,7 +8,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 //=============================================================================
 /*:
- * @plugindesc v1.00 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
+ * @plugindesc v1.2.0 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @param ---Player torch---
@@ -240,7 +240,15 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * ============================================================================
  * Changelog
  * ============================================================================
- *
+ * 
+ * Version 1.2.0:
+ * + Added the possibility to Copy and Paste selected light with CTRL + C and
+ *   CTRL + V
+ * + Added the possibility to Delete the selected light with the DELETE and the
+ * 	 BACKSPACE key.
+ * * Corrected a bug where if two lights were at the same place, dragging one
+ *   would drag the other.
+ * 
  * Version 1.1.0:
  * -- FeelZoR continues development
  * + Added the possibility to make the player torch follow the player's
@@ -753,6 +761,22 @@ LightSource.prototype.getData = function() {
     return data;
 }
 
+LightSource.prototype.setData = function(data) {
+	this.filename = data['filename'];
+	this.ox = data['x'];
+	this.oy = data['y'];
+	this.hue = data['hue'];
+	this.oscale = data['scale'];
+	this.oalpha = data['alpha'];
+	this.pulseAnimation = data['pulseAnimation'];
+	this.pulseMin = data['pulseMin'];
+	this.pulseMax = data['pulseMax'];
+	this.pulseSpeed = data['pulseSpeed'];
+	this.flickerAnimation = data['flickerAnimation'];
+	this.flickIntensity = data['flickIntensity'];
+	this.flickSpeed = data['flickSpeed'];
+}
+
 //-----------------------------------------------------------------------------
 // LightSourceEvent
 //
@@ -1123,6 +1147,7 @@ Game_Editor.prototype.initialize = function() {
     PIXI.Container.call(this);
     LNM_LightingTool_GameEditor_initialize.call(this);
     this._setupLightingEditor();
+	this._clipboardData = {};
 }
 
 Game_Editor.prototype._setupLightingEditor = function() {
@@ -1154,6 +1179,20 @@ Game_Editor.prototype.toggleLightingEditor = function() {
         this._lightingToolButtons[i].visible = !this._lightingToolButtons[i].visible;
     }
     if (!GameEditor.TOOLS.Lighting) this.lightingTool.hide();
+}
+
+Game_Editor.prototype.addLightToClipboard = function(data) {
+	this._clipboardData = data;
+}
+
+Game_Editor.prototype.getLightFromClipboard = function() {
+	var source = new LightSource(this._clipboardData.filename, this._clipboardData.x, this._clipboardData.y, this._clipboardData.hue, this._clipboardData.scale, this._clipboardData.alpha);
+	source.setData(this._clipboardData);
+	return source;
+}
+
+Game_Editor.prototype.hasClipboard = function() {
+	return this._clipboardData != {};
 }
 
 //-----------------------------------------------------------------------------
@@ -1551,10 +1590,12 @@ LightSourceIcon.prototype._updateMouseBehavior = function() {
 }
 
 LightSourceIcon.prototype.drag = function() {
-    var mx = TouchInput.x;
-    var my = TouchInput.y;
-    this.lightSource.ox = Math.floor(mx + ($gameMap.displayX() * $gameMap.tileWidth()));
-    this.lightSource.oy = Math.floor(my + ($gameMap.displayY() * $gameMap.tileHeight()));
+	if ($gameEditor.lightingTool.lightSource == this.lightSource) {
+		var mx = TouchInput.x;
+		var my = TouchInput.y;
+		this.lightSource.ox = Math.floor(mx + ($gameMap.displayX() * $gameMap.tileWidth()));
+		this.lightSource.oy = Math.floor(my + ($gameMap.displayY() * $gameMap.tileHeight()));
+	}
 }
 
 LightSourceIcon.prototype.isTriggered = function() {
@@ -1577,3 +1618,45 @@ LightSourceIcon.prototype._updatePosition = function() {
     this.x = this.lightSource.x;
     this.y = this.lightSource.y;
 }
+
+//-----------------------------------------------------------------------------
+// Graphics._onKeyDown
+//
+// Toggle the editor by pressing Tab.
+
+Graphics._copyPaste_onKeyDown = Graphics._onKeyDown;
+Graphics._onKeyDown = function(event) {
+    if (event.ctrlKey) {
+        if (GameEditor.ACTIVE && SceneManager._scene instanceof Scene_Map) {
+			switch (event.keyCode) {
+				case 67: // C
+					event.preventDefault();
+					if ($gameEditor.lightingTool.lightSource) {
+						$gameEditor.addLightToClipboard($gameEditor.lightingTool.lightSource.getData());
+					}
+					break;
+				case 86: // V
+					event.preventDefault();
+					if ($gameEditor.hasClipboard()) {
+						var pastedSource = $gameEditor.getLightFromClipboard();
+						$gameLighting.add(pastedSource);
+						$gameLighting.save();
+					}
+					break;
+			}
+		}
+    } else if (!event.altKey) {
+		if (GameEditor.ACTIVE && SceneManager._scene instanceof Scene_Map) {
+			switch (event.keyCode) {
+				case 46: case 8: // Delete / Backspace
+					$gameEditor.lightingTool.deleteLight();
+					$gameLighting.save();
+					break;
+			}
+		}
+	}
+    return this._copyPaste_onKeyDown(event);
+};
+
+/*$gameEditor.lightingTool.deleteLight();
+        $gameLighting.save();*/
