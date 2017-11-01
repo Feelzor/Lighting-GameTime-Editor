@@ -8,7 +8,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 //=============================================================================
 /*:
- * @plugindesc v1.2.0 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
+ * @plugindesc v1.3.0 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @param ---Player torch---
@@ -207,6 +207,22 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * Ambient in the field “Note”.
  *
  * ============================================================================
+ * Commands
+ * ============================================================================
+ * 
+ * Light ON light_id - Turns on the light with the corresponding id (can be
+ * 	                   found in the editor).
+ *
+ * Light OFF light_id - Turns off the light with the corresponding id (can be
+ *                      found in the editor).
+ *
+ * Light LIMIT time_begin time_end light_id
+ * Turns on and off the light with the corresponding id (can be found in the
+ * editor) automatically depending on the time.
+ * eg: Light LIMIT 22:00 6:00 1 will turn on the light with id 1 between
+ *     10:00pm and 6:00am.
+ * 
+ * ============================================================================
  * Player torch
  * ============================================================================
  *
@@ -240,6 +256,15 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * ============================================================================
  * Changelog
  * ============================================================================
+ * 
+ * Version 1.3.0:
+ * + Now lights follow the events if they move.
+ * + Added the possibility to turn on and off lights created by the editor.
+ * + Added the possibility to automatically turn on and off lights created by
+ *   the editor depending on the time.
+ * * Corrected a bug where null lights wouldn't be loaded correctly at start.
+ * * Corrected a bug where dragging a light on the buttons would change its
+ *   properties.
  * 
  * Version 1.2.0:
  * + Added the possibility to Copy and Paste selected light with CTRL + C and
@@ -588,6 +613,7 @@ LightSource.prototype.constructor = LightSource;
 
 LightSource.prototype.initialize = function(filename, x, y, hue, scale, alpha) {
     Sprite.prototype.initialize.call(this);
+	this._off = false;
     this.bitmap = ImageManager.loadLight(filename);
     this.filename = filename;
     this.ox = x;
@@ -606,6 +632,14 @@ LightSource.prototype.initialize = function(filename, x, y, hue, scale, alpha) {
     this.flickerAnimation = false;
     this.flickIntensity = 0;
     this.flickSpeed = 0;
+}
+
+LightSource.prototype.turnOff = function() {
+	this._off = true;
+}
+
+LightSource.prototype.turnOn = function() {
+	this._off = false;
 }
 
 LightSource.prototype.setupPulseAnimation = function(pulseMin, pulseMax, pulseSpeed) {
@@ -689,7 +723,7 @@ LightSource.prototype.modifyOpacity = function(alpha) {
 LightSource.prototype.modifyColor = function(hue) {
     if (hue >= 0 && hue <= 359) {
         this.hue = hue;
-        var color = GameEditor.getColor(hue);
+        var color = Number(GameEditor.getColor(hue) || 0xFFFFFF);
         this.tint = color;
     }
 }
@@ -700,6 +734,11 @@ LightSource.prototype._updatePosition = function() {
 }
 
 LightSource.prototype._updateVisibility = function() {
+	if (this._off) {
+		this.visible = false;
+		return;
+	}
+	
     var x = this.x - (this.width / 2) * this.scale.x;
     var y = this.y - (this.height / 2) * this.scale.y;
     if (x > Graphics.width || y > Graphics.height) {
@@ -807,8 +846,9 @@ LightSourceEvent.prototype.getOriginY = function(y) {
 }
 
 LightSourceEvent.prototype._updatePosition = function() {
-    this.x = this.offsetX + this.ox - ($gameMap.displayX() * $gameMap.tileWidth());
-    this.y = this.offsetY + this.oy - ($gameMap.displayY() * $gameMap.tileHeight());
+	var eventLinkedTo = $gameMap.event(this.eventId);
+    this.x = this.offsetX + this.getOriginX(eventLinkedTo._realX) - ($gameMap.displayX() * $gameMap.tileWidth());
+    this.y = this.offsetY + this.getOriginY(eventLinkedTo._realY) - ($gameMap.displayY() * $gameMap.tileHeight());
 }
 
 //-----------------------------------------------------------------------------
@@ -1232,8 +1272,15 @@ Lighting_Tool.prototype.initialize = function() {
     this.hide();
 }
 
+var FLZ_ButtonText_OnClick = ButtonText.prototype.onClick;
+ButtonText.prototype.onClick = function() {
+	if ($gameEditor.lightingTool.isDragging()) return;
+	FLZ_ButtonText_OnClick.call(this);
+}
+
 Lighting_Tool.prototype._createButtons = function() {
     var x = Graphics.width;
+	
     this.addChild(new ButtonText(x - 70, 47, ' < ', function() {
         $gameEditor.lightingTool.lightSource.ox -= 1;
         $gameLighting.save();
@@ -1386,11 +1433,21 @@ Lighting_Tool.prototype._createButtons = function() {
         $gameEditor.lightingTool.lightSource.tint = 0xFFFFFF;
         $gameLighting.save();
     }));
+	
+	var FLZ_ButtonSlider_Drag_Prototype = ButtonSlider.prototype.drag;
     this.sliderHue = new ButtonSlider(x - 288, 454, 280, 0, 359, function(value) {
         if (!$gameEditor.lightingTool.lightSource) return;
+		if ($gameEditor.lightingTool.isDragging()) return;
         $gameEditor.lightingTool.lightSource.modifyColor(value);
         $gameLighting.save();
     });
+	
+	this.sliderHue.drag = function() {
+		if ($gameEditor.lightingTool.isDragging()) return;
+		FLZ_ButtonSlider_Drag_Prototype.call(this);
+	}
+	
+	
     this.addChild(this.sliderHue);
     this.addChild(new ButtonText(x - 68, 480, 'Delete', function() {
         $gameEditor.lightingTool.deleteLight();
@@ -1658,5 +1715,78 @@ Graphics._onKeyDown = function(event) {
     return this._copyPaste_onKeyDown(event);
 };
 
-/*$gameEditor.lightingTool.deleteLight();
-        $gameLighting.save();*/
+//-----------------------------------------------------------------------------
+// Light_Limit
+//
+// Limits the time where the light lightens depending on the time.
+function Light_Limit() {
+	this.initialize.apply(this, arguments);
+}
+
+Light_Limit.prototype = Object.create(Time_Limit.prototype);
+Light_Limit.prototype.constructor = Light_Limit;
+
+Light_Limit.prototype.initialize = function(timeBeginIn, timeEndIn, lightIdIn) {
+	Time_Limit.prototype.initialize.call(this, timeBeginIn, timeEndIn);
+	this.lightId = lightIdIn;
+	this._lastValue = -1;
+}
+
+Light_Limit.prototype.updateValue = function(value) {
+	if (this._lastValue != value) {
+		this._lastValue = value;
+		if (value) { $gameLighting.list[this.lightId].turnOn(); } 
+		else { $gameLighting.list[this.lightId].turnOff(); }
+	}
+}
+
+//-----------------------------------------------------------------------------
+// GameTime
+//
+//
+
+FLZ_GameTime_Initialize = GameTime.prototype.initialize;
+GameTime.prototype.initialize = function() {
+	FLZ_GameTime_Initialize.call(this);
+	this.lightLimits = [];
+}
+
+FLZ_GameTime_Update = GameTime.prototype.update;
+GameTime.prototype.update = function() {
+	FLZ_GameTime_Update.call(this);
+	if (GameEditor.TOOLS.TimeEnabled === 'true' && !this._pause) {
+		for (var index in this.lightLimits) {
+			this.lightLimits[index].update(this.time);
+		}
+	}
+}
+
+GameTime.prototype.addLightLimit = function(lightLimit) {
+	if (!this.lightLimits) { this.lightLimits = []; } // compatibility with old versions
+	this.lightLimits.push(lightLimit);
+}
+
+//-----------------------------------------------------------------------------
+// Game_Interpreter
+//
+// The interpreter for running event commands.
+
+var FLZ_GameTime_Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
+Game_Interpreter.prototype.pluginCommand = function(command, args) {
+    FLZ_GameTime_Game_Interpreter_pluginCommand.call(this, command, args);
+	if (command === 'Light') {
+		switch (args[0].toLowerCase()) {
+			case 'on':
+				$gameLighting.list[Number(args[1])].turnOn();
+				break;
+			case 'off':
+				$gameLighting.list[Number(args[1])].turnOff();
+				break;
+			case 'limit':
+				var timeBegin = String(args[1]).split(':');
+				var timeEnd = String(args[2]).split(':');
+				$gameTime.addLightLimit(new Light_Limit(timeBegin, timeEnd, Number(args[3])));
+				break;
+		}
+	}
+}

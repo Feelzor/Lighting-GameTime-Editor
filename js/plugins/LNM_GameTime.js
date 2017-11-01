@@ -7,7 +7,7 @@ var $gameTime = null;
 
 //=============================================================================
 /*:
- * @plugindesc v1.2.0 Adds control of time to the game, and night / day
+ * @plugindesc v1.2.1 Adds control of time to the game, and night / day
  * cycle. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
@@ -240,6 +240,10 @@ var $gameTime = null;
  * Changelog
  * ============================================================================
  *
+ * Version 1.2.1:
+ * * Fixed a bug where deactivating time would make a black screen. 
+ * * Fixed a bug where spaces in the <Tint> note were mandatory.
+ * 
  * Version 1.2.0:
  * + Added the possibility to store current time into variables.
  * + Added a default time value when starting a new game.
@@ -313,7 +317,7 @@ function GameTime() {
 }
 
 GameTime.prototype.initialize = function() {
-    this._tint = [0, 0, 0];
+    this._tint = [255, 255, 255];
     this._pause = false;
     this._pauseTint = false;
     this._oldTimeMinute = -1;
@@ -474,18 +478,73 @@ Time.prototype.getTime = function(string) {
 }
 
 //-----------------------------------------------------------------------------
-// Switch_Limit
+// Time_Limit
 //
-// Limits the activation of a self switch of an event to a specified time.
-function Switch_Limit(eventIdIn, mapIdIn, timeBeginIn, timeEndIn, selfSwitchIn) {
-	this.eventId = eventIdIn;
-	this.mapId = mapIdIn;
-	
+// Limits the activation of something depending to the time.
+function Time_Limit() {
+	this.initialize.apply(this, arguments);
+}
+
+Time_Limit.prototype.initialize = function(timeBeginIn, timeEndIn) {
 	this.hourBegin = Number(timeBeginIn[0]);
 	this.minutesBegin = Number(timeBeginIn[1]);
 	
 	this.hourEnd = Number(timeEndIn[0]);
 	this.minutesEnd = Number(timeEndIn[1]);
+}
+
+Time_Limit.prototype.update = function(time) {
+	if (this.hourBegin < this.hourEnd || (this.hourBegin === this.hourEnd && this.minutesBegin < this.minutesEnd)) {
+		this.updateSameDay(time);
+	} else {
+		this.updateDifferentDay(time);
+	}
+}
+
+Time_Limit.prototype.updateSameDay = function(time) {
+	var currentHour = time.getTime('hour');
+	var currentMinutes = time.getTime('minute');
+	if (currentHour > this.hourBegin || (currentHour === this.hourBegin && currentMinutes >= this.minutesBegin)) {
+		if (currentHour < this.hourEnd || (currentHour === this.hourEnd && currentMinutes <= this.minutesEnd)) {
+			this.updateValue(true);
+		}
+		
+		else {
+			this.updateValue(false);
+		}
+	} else {
+		this.updateValue(false);
+	}
+}
+
+Time_Limit.prototype.updateDifferentDay = function(time) {
+	var currentHour = time.getTime('hour');
+	var currentMinutes = time.getTime('minute');
+	if (currentHour > this.hourBegin || currentHour < this.hourEnd || (currentHour === this.hourBegin && currentMinutes >= this.minutesBegin) || (currentHour === this.hourEnd && currentMinutes <= this.minutesEnd)) {
+		this.updateValue(true);
+	} else {
+		this.updateValue(false);
+	}
+}
+
+Time_Limit.prototype.updateValue = function(value) {}
+
+
+//-----------------------------------------------------------------------------
+// Switch_Limit
+//
+// Limits the activation of a self switch of an event to a specified time.
+function Switch_Limit() {
+	this.initialize.apply(this, arguments);
+}
+
+Switch_Limit.prototype = Object.create(Time_Limit.prototype);
+Switch_Limit.prototype.constructor = Switch_Limit;
+
+Switch_Limit.prototype.initialize = function(timeBeginIn, timeEndIn, eventIdIn, mapIdIn, selfSwitchIn) {
+	Time_Limit.prototype.initialize.call(this, timeBeginIn, timeEndIn);
+	this.eventId = eventIdIn;
+	this.mapId = mapIdIn;
 	
 	switch (selfSwitchIn) {
 		case 'A': case 'B': case 'C': case 'D':
@@ -499,42 +558,7 @@ function Switch_Limit(eventIdIn, mapIdIn, timeBeginIn, timeEndIn, selfSwitchIn) 
 	this.lastValue = null;
 }
 
-
-Switch_Limit.prototype.update = function(time) {
-	if (this.hourBegin < this.hourEnd || (this.hourBegin === this.hourEnd && this.minutesBegin < this.minutesEnd)) {
-		this.updateSameDay(time);
-	} else {
-		this.updateDifferentDay(time);
-	}
-}
-
-Switch_Limit.prototype.updateSameDay = function(time) {
-	var currentHour = time.getTime('hour');
-	var currentMinutes = time.getTime('minute');
-	if (currentHour > this.hourBegin || (currentHour === this.hourBegin && currentMinutes >= this.minutesBegin)) {
-		if (currentHour < this.hourEnd || (currentHour === this.hourEnd && currentMinutes <= this.minutesEnd)) {
-			this.setSwitchValue(true);
-		}
-		
-		else {
-			this.setSwitchValue(false);
-		}
-	} else {
-		this.setSwitchValue(false);
-	}
-}
-
-Switch_Limit.prototype.updateDifferentDay = function(time) {
-	var currentHour = time.getTime('hour');
-	var currentMinutes = time.getTime('minute');
-	if (currentHour > this.hourBegin || currentHour < this.hourEnd || (currentHour === this.hourBegin && currentMinutes >= this.minutesBegin) || (currentHour === this.hourEnd && currentMinutes <= this.minutesEnd)) {
-		this.setSwitchValue(true);
-	} else {
-		this.setSwitchValue(false);
-	}
-}
-
-Switch_Limit.prototype.setSwitchValue = function(value) {
+Switch_Limit.prototype.updateValue = function(value) {
 	if (this.lastValue != value) {
 		var key = [this.mapId, this.eventId, this.selfSwitch];
 		$gameSelfSwitches.setValue(key, value);
@@ -559,10 +583,10 @@ Game_Map.prototype.processTintNotes = function() {
     var notetags = $dataMap.note.split(/[\r\n]+/);
     for (var i = 0; i < notetags.length; i++) {
         var line = notetags[i];
-        if (line.match(/<(?:Tint:)[ ](\d+)>/i)) {
+        if (line.match(/<(?:Tint:)\s*(\d+)>/i)) {
             $gameScreen.customTint(RegExp.$1);
         }
-        if (line.match(/<(?:Tint:)[ ](\d+),[ ](\d+),[ ](\d+)>/i)) {
+        if (line.match(/<(?:Tint:)\s*(\d+),\s*(\d+),\s*(\d+)>/i)) {
             $gameScreen.setTint(RegExp.$1, RegExp.$2, RegExp.$3);
         }
     }
@@ -711,7 +735,7 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
 					var timeBegin = String(args[1]).split(':');
 					var timeEnd = String(args[2]).split(':');
 					var selfSwitch = String(args[3])[0].toUpperCase();
-					$gameTime.addNewSwitchLimit(new Switch_Limit(this.eventId(), this._mapId, timeBegin, timeEnd, selfSwitch));
+					$gameTime.addNewSwitchLimit(new Switch_Limit(timeBegin, timeEnd, this.eventId(), this._mapId, selfSwitch));
 					break;
 			}
 		}
