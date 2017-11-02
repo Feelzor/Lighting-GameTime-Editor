@@ -8,7 +8,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 //=============================================================================
 /*:
- * @plugindesc v1.3.0 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
+ * @plugindesc v1.3.1 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @param ---Player torch---
@@ -257,6 +257,9 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * Changelog
  * ============================================================================
  * 
+ * Version 1.3.1:
+ * * Some performance improvements
+ * 
  * Version 1.3.0:
  * + Now lights follow the events if they move.
  * + Added the possibility to turn on and off lights created by the editor.
@@ -330,14 +333,30 @@ GameEditor.TOOLS.AmbientAlpha = parseFloat(GameEditor.Parameters['Ambient Alpha'
 //
 //
 
+/**
+ * The class that controls all Lights.
+ *
+ * @class LightingController
+ * @constructor
+ */
 function LightingController() {
     this.initialize.apply(this, arguments);
 }
 
+/**
+ * Create an instance of LightingController
+ *
+ * @memberof LightingController
+ */
 LightingController.prototype.initialize = function() {
     this.clear();
 }
 
+/**
+ * Initializes all attributes to their default values
+ *
+ * @memberof LightingController
+ */
 LightingController.prototype.clear = function() {
     this.list = [];
     this.refresh = false;
@@ -349,6 +368,14 @@ LightingController.prototype.clear = function() {
     this.eventList = [];
 }
 
+/**
+ * Creates a light source of the specified type.
+ *
+ * @param light The type of the light to create.
+ * @param x X position.
+ * @param y Y position.
+ * @memberof LightingController
+ */
 LightingController.prototype.addByType = function(light, x, y) {
     if (!x) x = $gamePlayer.x * $gameMap.tileWidth();
     if (!y) y = $gamePlayer.y * $gameMap.tileHeight();
@@ -357,6 +384,11 @@ LightingController.prototype.addByType = function(light, x, y) {
     this.save();
 }
 
+/**
+ * Turns on or off the Player Torch depending on the switch defined in the Plugin Parameters.
+ *
+ * @memberof LightingController
+ */
 LightingController.prototype.checkPlayerTorch = function() {
     if ($gameSwitches.value(GameEditor.TOOLS.PlayerTorchSwitch) == true) {
         if (!this.playerTorch) {
@@ -374,12 +406,24 @@ LightingController.prototype.checkPlayerTorch = function() {
     }
 }
 
+/**
+ * Adds a light source.
+ *
+ * @param lightSource The source to add.
+ * @memberof LightingController
+ */
 LightingController.prototype.add = function(lightSource) {
     this.addingLightsList.push(lightSource);
     this.addingLights = true;
     this.list.push(lightSource);
 }
 
+/**
+ * Removes a light source.
+ *
+ * @param lightSource The source to remove.
+ * @memberof LightingController
+ */
 LightingController.prototype.remove = function(lightSource) {
     this.removingLightsList.push(lightSource);
     this.removingLights = true;
@@ -388,6 +432,11 @@ LightingController.prototype.remove = function(lightSource) {
     this.save();
 }
 
+/**
+ * Saves all the lights into the map's data.
+ *
+ * @memberof LightingController
+ */
 LightingController.prototype.save = function() {
     $gameMap.saveLightingData();
 }
@@ -397,6 +446,13 @@ LightingController.prototype.save = function() {
 //
 // The static class that loads images, creates bitmap objects and retains them.
 
+/**
+ * Loads the bitmap of the specified light.
+ *
+ * @param filename The file that will be loaded for the light.
+ * @param hue The hue that'll be set for the colour of the light.
+ * @memberof ImageManager
+ */
 ImageManager.loadLight = function(filename, hue) {
     return this.loadBitmap('img/lights/', filename, hue, true);
 }
@@ -467,6 +523,7 @@ LightingSurface.prototype._createSurface = function() {
     this._surface = new Sprite();
     this._surface.bitmap = new Bitmap(this._width, this._height);
     var color = GameEditor.rgbToHex($gameTime.tint(0), $gameTime.tint(1), $gameTime.tint(2));
+	this._lastColor = color;
     this._surface.bitmap.fillRect(0, 0, this._width, this._height, color);
     this.addChild(this._surface);
 }
@@ -569,7 +626,10 @@ LightingSurface.prototype.setupFlickAnimationToEvent = function(lightSource, par
 
 LightingSurface.prototype.update = function() {
     var color = GameEditor.rgbToHex($gameTime.tint(0), $gameTime.tint(1), $gameTime.tint(2));
-    this._surface.bitmap.fillRect(0, 0, this._width, this._height, color);
+    if (this._lastColor != color) {
+		this._surface.bitmap.fillRect(0, 0, this._width, this._height, color);
+		this._lastColor = color;
+	}
     this._updateLights();
     this.children.forEach(function(child) {
         if (child.update) {
@@ -1679,7 +1739,7 @@ LightSourceIcon.prototype._updatePosition = function() {
 //-----------------------------------------------------------------------------
 // Graphics._onKeyDown
 //
-// Toggle the editor by pressing Tab.
+// Add useful shortcuts to the editor.
 
 Graphics._copyPaste_onKeyDown = Graphics._onKeyDown;
 Graphics._onKeyDown = function(event) {

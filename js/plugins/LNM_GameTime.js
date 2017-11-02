@@ -7,7 +7,7 @@ var $gameTime = null;
 
 //=============================================================================
 /*:
- * @plugindesc v1.2.1 Adds control of time to the game, and night / day
+ * @plugindesc v1.2.2 Adds control of time to the game, and night / day
  * cycle. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
@@ -24,9 +24,16 @@ var $gameTime = null;
  * @desc Number of frames it takes for one second to pass, in frames
  * @default 60
  *
- * @param Show Clock
+ * @param ---Clock Settings---
+ * @default
+ *
+ * @param Show Clock in Menu
  * @desc Shows the current time in the main menu (true / false)
  * @default true
+ *
+ * @param Show Clock on Map
+ * @desc Shows the current time on the map (true / false)
+ * @default false
  *
  * @param ---Tints by time---
  * @default
@@ -240,6 +247,10 @@ var $gameTime = null;
  * Changelog
  * ============================================================================
  *
+ * Version 1.2.2:
+ * + Added the possibility to activate the time window on the map.
+ * * Modified the parameter that shows the time clock into the menu.
+ *
  * Version 1.2.1:
  * * Fixed a bug where deactivating time would make a black screen. 
  * * Fixed a bug where spaces in the <Tint> note were mandatory.
@@ -268,7 +279,8 @@ GameEditor.Parameters = PluginManager.parameters('LNM_GameTime');
 GameEditor.TOOLS.TimeEnabled = String(GameEditor.Parameters['Enabled'] || true);
 GameEditor.TOOLS.DefaultStartTimeStringList = String(GameEditor.Parameters['Default Time'] || '6:00').split(':');
 GameEditor.TOOLS.TimeLapse = Number(GameEditor.Parameters['Time Lapse Speed'] || 60);
-GameEditor.TOOLS.TimeShowClock = String(GameEditor.Parameters['Show Clock'] || true);
+GameEditor.TOOLS.TimeShowClockMenu = String(GameEditor.Parameters['Show Clock in Menu'] || true);
+GameEditor.TOOLS.TimeShowClockMap = String(GameEditor.Parameters['Show Clock on Map'] || false);
 GameEditor.TOOLS.TimeTint = [];
 GameEditor.TOOLS.TimeTint[0] = JSON.parse(String(GameEditor.Parameters['00.00'] || '[15, 20, 170]'));
 GameEditor.TOOLS.TimeTint[1] = JSON.parse(String(GameEditor.Parameters['01:00'] || '[9, 14, 150]'));
@@ -743,6 +755,8 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
 }
 
 if (GameEditor.TOOLS.TimeEnabled === 'true') {
+	
+if (GameEditor.TOOLS.TimeShowClockMenu === 'true') {
 //-----------------------------------------------------------------------------
 // Scene_Menu
 //
@@ -759,6 +773,56 @@ Scene_Menu.prototype.createTimeWindow = function() {
     this._timeWindow.y = Graphics.boxHeight - this._timeWindow.height - this._goldWindow.height;
     this.addWindow(this._timeWindow);
 }
+} // endif
+
+if (GameEditor.TOOLS.TimeShowClockMap === 'true') {
+//-----------------------------------------------------------------------------
+// Scene_Map
+//
+// The scene class of the map screen.
+
+var FLZ_GameTime_Scene_Map_create = Scene_Map.prototype.create;
+Scene_Map.prototype.create = function() {
+	FLZ_GameTime_Scene_Map_create.call(this);
+	this._timeWindowShown = null;
+}
+
+var FLZ_GameTime_Scene_Map_callMenu = Scene_Map.prototype.callMenu;
+Scene_Map.prototype.callMenu = function() {
+	FLZ_GameTime_Scene_Map_callMenu.call(this);
+	this._timeWindow.hide();
+	this._timeWindowShown = false;
+}
+
+var FLZ_GameTime_Scene_Map_update = Scene_Map.prototype.update;
+Scene_Map.prototype.update = function() {
+	FLZ_GameTime_Scene_Map_update.call(this);
+	if (this._timeWindowShown != null) {
+		if (this.isActive() && !this._timeWindowShown) {
+			this._timeWindow.show();
+			this._timeWindowShown = true;
+		}
+		
+		else if (!this.isActive() && this._timeWindowShown) {
+			this._timeWindow.hide();
+			this._timeWindowShown = false;
+		}
+	}
+}
+
+var FLZ_GameTime_Scene_Map_createAllWindows = Scene_Map.prototype.createAllWindows;
+Scene_Map.prototype.createAllWindows = function() {
+    FLZ_GameTime_Scene_Map_createAllWindows.call(this);
+    this.createTimeWindow();
+}
+
+Scene_Map.prototype.createTimeWindow = function() {
+    this._timeWindow = new Window_Time();
+    this._timeWindow.x = 0; // You can remove it, or change the 0 to change the top left position on the x axis.
+    this._timeWindow.y = 0; // You can remove it, or change the 0 to change the top left position on the y axis.
+    this.addWindow(this._timeWindow);
+}
+} // endif
 
 //-----------------------------------------------------------------------------
 // Window_Time
@@ -775,7 +839,6 @@ Window_Time.prototype.initialize = function() {
     var width = this.windowWidth();
     var height = this.windowHeight();
     Window_Base.prototype.initialize.call(this, 0, 0, width, height);
-	this.visible = (GameEditor.TOOLS.TimeShowClock === 'true');
 }
 
 Window_Time.prototype.windowWidth = function() {
