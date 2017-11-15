@@ -69,7 +69,7 @@ Graphics._onKeyDown = function(event) {
                         $gameEditor.toggle();
                     }
                 }
-				break;
+                break;
         }
     }
     return this._callEditor_onKeyDown(event);
@@ -118,14 +118,14 @@ Game_Editor.prototype.constructor = Game_Editor;
 
 Game_Editor.prototype.initialize = function() {
     PIXI.Container.call(this);
-	this._buttons = 0;
+    this._buttons = 0;
 }
 
 Game_Editor.prototype.addButton = function(filename, callback) {
-	this.addChild(new ButtonImage(44 * this._buttons + 12, Graphics.height - 48, filename, function() {
+    this.addChild(new ButtonImage(44 * this._buttons + 12, Graphics.height - 48, filename, function() {
         callback();
     }));
-	this._buttons++;
+    this._buttons++;
 }
 
 Game_Editor.prototype.update = function() {

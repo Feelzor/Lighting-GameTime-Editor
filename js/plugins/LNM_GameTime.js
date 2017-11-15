@@ -7,9 +7,11 @@ var $gameTime = null;
 
 //=============================================================================
 /*:
- * @plugindesc v1.2.2 Adds control of time to the game, and night / day
+ * @plugindesc v1.2.3 Adds control of time to the game, and night / day
  * cycle. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
+ *
+ * @requiredAssets img/editor/Time.png
  *
  * @param Enabled
  * @desc Set to false if you want to disable the time.
@@ -247,6 +249,10 @@ var $gameTime = null;
  * Changelog
  * ============================================================================
  *
+ * Version 1.2.3:
+ * * Corrected a bug where using the "Used with MV" plugin would make the game
+ *   crash. Corrected the same bug for all other "splash screen" plugins.
+ *
  * Version 1.2.2:
  * + Added the possibility to activate the time window on the map.
  * * Modified the parameter that shows the time clock into the menu.
@@ -264,7 +270,7 @@ var $gameTime = null;
  * -- FeelZoR continues development
  * + Added the possibility to disable the time system.
  * * Corrected a bug where the custom tint set to the map would reset after
- * 	 closing a menu.
+ *      closing a menu.
  *
  * Version 1.00:
  * -- Plugin published.
@@ -274,7 +280,6 @@ var $gameTime = null;
 //=============================================================================
 // Parameter variables
 //=============================================================================
-
 GameEditor.Parameters = PluginManager.parameters('LNM_GameTime');
 GameEditor.TOOLS.TimeEnabled = String(GameEditor.Parameters['Enabled'] || true);
 GameEditor.TOOLS.DefaultStartTimeStringList = String(GameEditor.Parameters['Default Time'] || '6:00').split(':');
@@ -335,31 +340,31 @@ GameTime.prototype.initialize = function() {
     this._oldTimeMinute = -1;
     this._oldTimeHour = -1;
     this.time = new Time();
-	this.switchLimits = [];
+    this.switchLimits = [];
 }
 
 GameTime.prototype.update = function() {
-	if (GameEditor.TOOLS.TimeEnabled === 'true') {
-		if (!this._pause) {
-			this.time.update();
-			for (var index in this.switchLimits) {
-				this.switchLimits[index].update(this.time);
-			}
-		}
-		if (!this._pauseTint) {
-			this.updateTint();
-		}
-	}
+    if (GameEditor.TOOLS.TimeEnabled === 'true') {
+        if (!this._pause) {
+            this.time.update();
+            for (var index in this.switchLimits) {
+                this.switchLimits[index].update(this.time);
+            }
+        }
+        if (!this._pauseTint) {
+            this.updateTint();
+        }
+    }
 }
 
 GameTime.prototype.updateTint = function() {
-	if (!this._pauseTint && GameEditor.TOOLS.TimeEnabled === 'true') {
-		var minute = this.getTime('minute');
-		this._oldTimeMinute = minute;
-		rgb = this.getNewTint(minute);
-		if (rgb == this._tint) return;
-		this._tint = rgb;
-	}
+    if (!this._pauseTint && GameEditor.TOOLS.TimeEnabled === 'true') {
+        var minute = this.getTime('minute');
+        this._oldTimeMinute = minute;
+        rgb = this.getNewTint(minute);
+        if (rgb == this._tint) return;
+        this._tint = rgb;
+    }
 }
 
 GameTime.prototype.getNewTint = function(minute) {
@@ -406,23 +411,23 @@ GameTime.prototype.pause = function() {
 }
 
 GameTime.prototype.getClock = function(string) {
-	var temp;
-	temp = "0" + this.time.hour;
-	var hour = temp.slice(-2);
-	temp = "0" + this.time.minute;
-	var minutes = temp.slice(-2);
-	return hour + ":" + minutes;
+    var temp;
+    temp = "0" + this.time.hour;
+    var hour = temp.slice(-2);
+    temp = "0" + this.time.minute;
+    var minutes = temp.slice(-2);
+    return hour + ":" + minutes;
 
 }
 
 GameTime.prototype.addNewSwitchLimit = function(switchLimit) {
-	if (this.switchLimits == null) { // Assures compatibility with v1.1.0 and older
-		this.switchLimits = [];
-	}
-	
-	if (switchLimit) {
-		this.switchLimits.push(switchLimit);
-	}
+    if (this.switchLimits == null) { // Assures compatibility with v1.1.0 and older
+        this.switchLimits = [];
+    }
+    
+    if (switchLimit) {
+        this.switchLimits.push(switchLimit);
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -494,49 +499,49 @@ Time.prototype.getTime = function(string) {
 //
 // Limits the activation of something depending to the time.
 function Time_Limit() {
-	this.initialize.apply(this, arguments);
+    this.initialize.apply(this, arguments);
 }
 
 Time_Limit.prototype.initialize = function(timeBeginIn, timeEndIn) {
-	this.hourBegin = Number(timeBeginIn[0]);
-	this.minutesBegin = Number(timeBeginIn[1]);
-	
-	this.hourEnd = Number(timeEndIn[0]);
-	this.minutesEnd = Number(timeEndIn[1]);
+    this.hourBegin = Number(timeBeginIn[0]);
+    this.minutesBegin = Number(timeBeginIn[1]);
+    
+    this.hourEnd = Number(timeEndIn[0]);
+    this.minutesEnd = Number(timeEndIn[1]);
 }
 
 Time_Limit.prototype.update = function(time) {
-	if (this.hourBegin < this.hourEnd || (this.hourBegin === this.hourEnd && this.minutesBegin < this.minutesEnd)) {
-		this.updateSameDay(time);
-	} else {
-		this.updateDifferentDay(time);
-	}
+    if (this.hourBegin < this.hourEnd || (this.hourBegin === this.hourEnd && this.minutesBegin < this.minutesEnd)) {
+        this.updateSameDay(time);
+    } else {
+        this.updateDifferentDay(time);
+    }
 }
 
 Time_Limit.prototype.updateSameDay = function(time) {
-	var currentHour = time.getTime('hour');
-	var currentMinutes = time.getTime('minute');
-	if (currentHour > this.hourBegin || (currentHour === this.hourBegin && currentMinutes >= this.minutesBegin)) {
-		if (currentHour < this.hourEnd || (currentHour === this.hourEnd && currentMinutes <= this.minutesEnd)) {
-			this.updateValue(true);
-		}
-		
-		else {
-			this.updateValue(false);
-		}
-	} else {
-		this.updateValue(false);
-	}
+    var currentHour = time.getTime('hour');
+    var currentMinutes = time.getTime('minute');
+    if (currentHour > this.hourBegin || (currentHour === this.hourBegin && currentMinutes >= this.minutesBegin)) {
+        if (currentHour < this.hourEnd || (currentHour === this.hourEnd && currentMinutes <= this.minutesEnd)) {
+            this.updateValue(true);
+        }
+        
+        else {
+            this.updateValue(false);
+        }
+    } else {
+        this.updateValue(false);
+    }
 }
 
 Time_Limit.prototype.updateDifferentDay = function(time) {
-	var currentHour = time.getTime('hour');
-	var currentMinutes = time.getTime('minute');
-	if (currentHour > this.hourBegin || currentHour < this.hourEnd || (currentHour === this.hourBegin && currentMinutes >= this.minutesBegin) || (currentHour === this.hourEnd && currentMinutes <= this.minutesEnd)) {
-		this.updateValue(true);
-	} else {
-		this.updateValue(false);
-	}
+    var currentHour = time.getTime('hour');
+    var currentMinutes = time.getTime('minute');
+    if (currentHour > this.hourBegin || currentHour < this.hourEnd || (currentHour === this.hourBegin && currentMinutes >= this.minutesBegin) || (currentHour === this.hourEnd && currentMinutes <= this.minutesEnd)) {
+        this.updateValue(true);
+    } else {
+        this.updateValue(false);
+    }
 }
 
 Time_Limit.prototype.updateValue = function(value) {}
@@ -547,35 +552,35 @@ Time_Limit.prototype.updateValue = function(value) {}
 //
 // Limits the activation of a self switch of an event to a specified time.
 function Switch_Limit() {
-	this.initialize.apply(this, arguments);
+    this.initialize.apply(this, arguments);
 }
 
 Switch_Limit.prototype = Object.create(Time_Limit.prototype);
 Switch_Limit.prototype.constructor = Switch_Limit;
 
 Switch_Limit.prototype.initialize = function(timeBeginIn, timeEndIn, eventIdIn, mapIdIn, selfSwitchIn) {
-	Time_Limit.prototype.initialize.call(this, timeBeginIn, timeEndIn);
-	this.eventId = eventIdIn;
-	this.mapId = mapIdIn;
-	
-	switch (selfSwitchIn) {
-		case 'A': case 'B': case 'C': case 'D':
-			this.selfSwitch = selfSwitchIn;
-			break;
-		default:
-			this.selfSwitch = 'A';
-			break;
-	}
-	
-	this.lastValue = null;
+    Time_Limit.prototype.initialize.call(this, timeBeginIn, timeEndIn);
+    this.eventId = eventIdIn;
+    this.mapId = mapIdIn;
+    
+    switch (selfSwitchIn) {
+        case 'A': case 'B': case 'C': case 'D':
+            this.selfSwitch = selfSwitchIn;
+            break;
+        default:
+            this.selfSwitch = 'A';
+            break;
+    }
+    
+    this.lastValue = null;
 }
 
 Switch_Limit.prototype.updateValue = function(value) {
-	if (this.lastValue != value) {
-		var key = [this.mapId, this.eventId, this.selfSwitch];
-		$gameSelfSwitches.setValue(key, value);
-		this.lastValue = value;
-	}
+    if (this.lastValue != value) {
+        var key = [this.mapId, this.eventId, this.selfSwitch];
+        $gameSelfSwitches.setValue(key, value);
+        this.lastValue = value;
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -643,7 +648,7 @@ Scene_Map.prototype.create = function() {
 var gameTime_Scene_Base_update = Scene_Base.prototype.update;
 Scene_Base.prototype.update = function() {
     gameTime_Scene_Base_update.call(this);
-    $gameTime.update();
+    if ($gameTime) { $gameTime.update(); }
 }
 
 Scene_Base.prototype.inMenu = function() {
@@ -686,24 +691,24 @@ DataManager.createGameObjects = function() {
 var LNM_GameTime_DataManager_makeSaveContents = DataManager.makeSaveContents;
 DataManager.makeSaveContents = function() {
     var contents = LNM_GameTime_DataManager_makeSaveContents.call(this);
-	contents.time = $gameTime;
+    contents.time = $gameTime;
     return contents;
 }
 
 var LNM_GameTime_DataManager_extractSaveContents = DataManager.extractSaveContents;
 DataManager.extractSaveContents = function(contents) {
     LNM_GameTime_DataManager_extractSaveContents.call(this, contents);
-	$gameTime = contents.time;
-	var gt = new GameTime();
-	var ct = new Time();
-	$gameTime.__proto__ = gt.__proto__;
-	$gameTime.time.__proto__ = ct.__proto__;
+    $gameTime = contents.time;
+    var gt = new GameTime();
+    var ct = new Time();
+    $gameTime.__proto__ = gt.__proto__;
+    $gameTime.time.__proto__ = ct.__proto__;
 }
 
 var FLZ_GameTime_DataManager_setupNewGame = DataManager.setupNewGame;
 DataManager.setupNewGame = function() {
     FLZ_GameTime_DataManager_setupNewGame.call(this);
-	$gameTime.setTime(Number(GameEditor.TOOLS.DefaultStartTimeStringList[0]),Number(GameEditor.TOOLS.DefaultStartTimeStringList[1]));
+    $gameTime.setTime(Number(GameEditor.TOOLS.DefaultStartTimeStringList[0]),Number(GameEditor.TOOLS.DefaultStartTimeStringList[1]));
 };
 
 //-----------------------------------------------------------------------------
@@ -714,48 +719,48 @@ DataManager.setupNewGame = function() {
 var LNM_GameTime_Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
 Game_Interpreter.prototype.pluginCommand = function(command, args) {
     LNM_GameTime_Game_Interpreter_pluginCommand.call(this, command, args);
-	if (GameEditor.TOOLS.TimeEnabled === 'true') {
-		if (command === 'Time') {
-			switch (args[0].toLowerCase()) {
-				case 'pause':
-					if (args[1] && args[2]) {
-						var hour = Number(args[1]);
-						var minute = Number(args[2]);
-						$gameTime.setTime(hour, minute);
-					}
-					$gameTime.pause();
-					break;
-				case 'play':
-					$gameTime.play();
-					break;
-				case 'set':
-					var hour = Number(args[1]);
-					var minute = Number(args[2]);
-					$gameTime.setTime(hour, minute);
-					$gameTime._pauseTint = false;
-					break;
-				case 'add':
-					var hours = Number(args[1]);
-					var minutes = Number(args[2]);
-					$gameTime.addTime(hours, minutes);
-					break;
-				case 'save':
-					$gameVariables.setValue(Number(args[1]), $gameTime.getTime('hour'));
-					$gameVariables.setValue(Number(args[2]), $gameTime.getTime('minute'));
-					break;
-				case 'limit':
-					var timeBegin = String(args[1]).split(':');
-					var timeEnd = String(args[2]).split(':');
-					var selfSwitch = String(args[3])[0].toUpperCase();
-					$gameTime.addNewSwitchLimit(new Switch_Limit(timeBegin, timeEnd, this.eventId(), this._mapId, selfSwitch));
-					break;
-			}
-		}
-	}
+    if (GameEditor.TOOLS.TimeEnabled === 'true') {
+        if (command === 'Time') {
+            switch (args[0].toLowerCase()) {
+                case 'pause':
+                    if (args[1] && args[2]) {
+                        var hour = Number(args[1]);
+                        var minute = Number(args[2]);
+                        $gameTime.setTime(hour, minute);
+                    }
+                    $gameTime.pause();
+                    break;
+                case 'play':
+                    $gameTime.play();
+                    break;
+                case 'set':
+                    var hour = Number(args[1]);
+                    var minute = Number(args[2]);
+                    $gameTime.setTime(hour, minute);
+                    $gameTime._pauseTint = false;
+                    break;
+                case 'add':
+                    var hours = Number(args[1]);
+                    var minutes = Number(args[2]);
+                    $gameTime.addTime(hours, minutes);
+                    break;
+                case 'save':
+                    $gameVariables.setValue(Number(args[1]), $gameTime.getTime('hour'));
+                    $gameVariables.setValue(Number(args[2]), $gameTime.getTime('minute'));
+                    break;
+                case 'limit':
+                    var timeBegin = String(args[1]).split(':');
+                    var timeEnd = String(args[2]).split(':');
+                    var selfSwitch = String(args[3])[0].toUpperCase();
+                    $gameTime.addNewSwitchLimit(new Switch_Limit(timeBegin, timeEnd, this.eventId(), this._mapId, selfSwitch));
+                    break;
+            }
+        }
+    }
 }
 
 if (GameEditor.TOOLS.TimeEnabled === 'true') {
-	
+    
 if (GameEditor.TOOLS.TimeShowClockMenu === 'true') {
 //-----------------------------------------------------------------------------
 // Scene_Menu
@@ -783,31 +788,31 @@ if (GameEditor.TOOLS.TimeShowClockMap === 'true') {
 
 var FLZ_GameTime_Scene_Map_create = Scene_Map.prototype.create;
 Scene_Map.prototype.create = function() {
-	FLZ_GameTime_Scene_Map_create.call(this);
-	this._timeWindowShown = null;
+    FLZ_GameTime_Scene_Map_create.call(this);
+    this._timeWindowShown = null;
 }
 
 var FLZ_GameTime_Scene_Map_callMenu = Scene_Map.prototype.callMenu;
 Scene_Map.prototype.callMenu = function() {
-	FLZ_GameTime_Scene_Map_callMenu.call(this);
-	this._timeWindow.hide();
-	this._timeWindowShown = false;
+    FLZ_GameTime_Scene_Map_callMenu.call(this);
+    this._timeWindow.hide();
+    this._timeWindowShown = false;
 }
 
 var FLZ_GameTime_Scene_Map_update = Scene_Map.prototype.update;
 Scene_Map.prototype.update = function() {
-	FLZ_GameTime_Scene_Map_update.call(this);
-	if (this._timeWindowShown != null) {
-		if (this.isActive() && !this._timeWindowShown) {
-			this._timeWindow.show();
-			this._timeWindowShown = true;
-		}
-		
-		else if (!this.isActive() && this._timeWindowShown) {
-			this._timeWindow.hide();
-			this._timeWindowShown = false;
-		}
-	}
+    FLZ_GameTime_Scene_Map_update.call(this);
+    if (this._timeWindowShown != null) {
+        if (this.isActive() && !this._timeWindowShown) {
+            this._timeWindow.show();
+            this._timeWindowShown = true;
+        }
+        
+        else if (!this.isActive() && this._timeWindowShown) {
+            this._timeWindow.hide();
+            this._timeWindowShown = false;
+        }
+    }
 }
 
 var FLZ_GameTime_Scene_Map_createAllWindows = Scene_Map.prototype.createAllWindows;
