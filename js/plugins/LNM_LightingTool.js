@@ -8,7 +8,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 //=============================================================================
 /*:
- * @plugindesc v1.3.2 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
+ * @plugindesc v1.3.3 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @requiredAssets img/editor/Lights.png
@@ -18,6 +18,10 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * @requiredAssets img/lights/player_torch_4.png
  * @requiredAssets img/lights/player_torch_6.png
  * @requiredAssets img/lights/player_torch_8.png
+ *
+ * @param Incompatibility fix
+ * @desc true if you are experiencing incompatibilities with another plugin. Put this one at the bottom of the list.
+ * @default false
  *
  * @param ---Player torch---
  * @default
@@ -265,6 +269,11 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * Changelog
  * ============================================================================
  * 
+ * Version 1.3.3:
+ * + Added an "Incompatibility" mode for those using, for example, "TDDP Bind
+ *   Pictures To Map" plugin. This plugin has to be below the problematic
+ *   plugin in order to function correctly.
+ *
  * Version 1.3.2:
  * + Added required assets.
  * * Corrected a bug where copy/pasting a light would not show flick / pulse
@@ -307,6 +316,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 //=============================================================================
 
 GameEditor.Parameters = PluginManager.parameters('LNM_LightingTool');
+GameEditor.TOOLS.IncompatibilityFix = String(GameEditor.Parameters['Incompatibility fix'] || false);
 GameEditor.TOOLS.PlayerTorchFourDirections = String(GameEditor.Parameters['Player Torch 4 Directions'] || false);
 GameEditor.TOOLS.PlayerTorchSwitch = Number(GameEditor.Parameters['Player Torch Switch'] || 1);
 GameEditor.TOOLS.PlayerTorchFilename = String(GameEditor.Parameters['Player Torch Filename'] || 'default');
@@ -477,6 +487,8 @@ ImageManager.loadLight = function(filename, hue) {
 //
 // The set of sprites on the map screen.
 
+if (GameEditor.TOOLS.IncompatibilityFix !== "true") { // no incompatibility fix
+
 Spriteset_Map.prototype.createLowerLayer = function() {
     Spriteset_Base.prototype.createLowerLayer.call(this);
     this.createParallax();
@@ -496,6 +508,20 @@ Spriteset_Map.prototype.update = function() {
     this.updateShadow();
     this.updateLighting();
     this.updateWeather();
+}
+
+} else {
+FLZ_Spriteset_Map_createLowerLayer = Spriteset_Map.prototype.createLowerLayer;
+Spriteset_Map.prototype.createLowerLayer = function() {
+    FLZ_Spriteset_Map_createLowerLayer.call(this);
+    this.createLighting();
+}
+
+FLZ_Spriteset_Map_update = Spriteset_Map.prototype.update;
+Spriteset_Map.prototype.update = function() {
+    FLZ_Spriteset_Map_update.call(this);
+    this.updateLighting();
+}
 }
 
 Spriteset_Map.prototype.createLighting = function() {
