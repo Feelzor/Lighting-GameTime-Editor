@@ -8,7 +8,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 //=============================================================================
 /*:
- * @plugindesc v1.3.3 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
+ * @plugindesc v1.3.4 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @requiredAssets img/editor/Lights.png
@@ -269,6 +269,10 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * Changelog
  * ============================================================================
  * 
+ * Version 1.3.4:
+ * * Solved a bug where Light LIMIT would turn on lights again after a battle,
+ *   even if they aren't supposed to be turned on.
+ *
  * Version 1.3.3:
  * + Added an "Incompatibility" mode for those using, for example, "TDDP Bind
  *   Pictures To Map" plugin. This plugin has to be below the problematic
@@ -532,6 +536,7 @@ Spriteset_Map.prototype.createLighting = function() {
     this._lightingSprite.texture = this._lightingTexture;
     this._lightingSprite.blendMode = PIXI.BLEND_MODES.MULTIPLY;
     this._lightingSprite.alpha = 1.0;
+    $gameTime.updateAllLightLimits();
     this.addChild(this._lightingSprite);
 }
 
@@ -554,7 +559,7 @@ LightingSurface.prototype.constructor = LightingSurface;
 
 LightingSurface.prototype.initialize = function() {
     PIXI.Container.call(this);
-    this._width = Graphics.width;
+    this._width = Graphics.width; 
     this._height = Graphics.height;
     this._createSurface();
     this._createLights();
@@ -669,7 +674,7 @@ LightingSurface.prototype.setupFlickAnimationToEvent = function(lightSource, par
     return lightSource;
 }
 
-LightingSurface.prototype.update = function() {
+LightingSurface.prototype.update = function() {    
     var color = GameEditor.rgbToHex($gameTime.tint(0), $gameTime.tint(1), $gameTime.tint(2));
     if (this._lastColor != color) {
         this._surface.bitmap.fillRect(0, 0, this._width, this._height, color);
@@ -741,8 +746,6 @@ LightSource.prototype.initialize = function(filename, x, y, hue, scale, alpha) {
     // Temporary elements
     this._hasTemporaryHue = false;
     this._temporaryHue = null;
-    
-    console.log("Created");
 }
 
 LightSource.prototype.turnOff = function() {
@@ -835,11 +838,8 @@ LightSource.prototype.modifyColor = function(hue) {
     if (hue >= 0 && hue <= 359) {
         this.hue = hue;
         if (!this._hasTemporaryHue) {
-            console.log("test");
             var color = Number(GameEditor.getColor(hue) || 0xFFFFFF);
             this.tint = color;
-        } else {
-            console.log("no test");
         }
     }
 }
@@ -1901,6 +1901,14 @@ GameTime.prototype.update = function() {
 GameTime.prototype.addLightLimit = function(lightLimit) {
     if (!this.lightLimits) { this.lightLimits = []; } // compatibility with old versions
     this.lightLimits.push(lightLimit);
+}
+
+GameTime.prototype.updateAllLightLimits = function() {
+    if (GameEditor.TOOLS.TimeEnabled === 'true' && !this._pause) {
+        for (var index in this.lightLimits) {
+            this.lightLimits[index]._lastValue = -1;
+        }
+    }
 }
 
 //-----------------------------------------------------------------------------
