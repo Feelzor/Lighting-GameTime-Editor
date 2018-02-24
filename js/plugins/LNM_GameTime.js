@@ -7,7 +7,7 @@ let $gameTime = null;
 
 //=============================================================================
 /*:
- * @plugindesc v1.2.3 Adds control of time to the game, and night / day
+ * @plugindesc v1.3.0 Adds control of time to the game, and night / day
  * cycle. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
@@ -217,6 +217,22 @@ let $gameTime = null;
  * Time LIMIT 6:00 13:40 A
  * Activates the self-switch A between 6am and 1:40pm.
  *
+ * Tint SET red green blue
+ * Sets the tint of the map to the specified colour.
+ * -- Example:
+ * Tint SET 255 0 0
+ * Sets the tint red.
+ *
+ * Tint SET tint_number
+ * Sets the tint of the map with a tint from the configuration.
+ * -- Example:
+ * Tint SET 3
+ * Set the tint with the 3rd tint in config.
+ *
+ * Tint REMOVE
+ * Resets the tint to the time tint, or removes the tint if the time plugin is
+ * disabled.
+ *
  * ============================================================================
  * Notetags
  * ============================================================================
@@ -248,6 +264,10 @@ let $gameTime = null;
  * ============================================================================
  * Changelog
  * ============================================================================
+ *
+ * Version 1.3.0:
+ * + Added tint command to set map tint through plugin command.
+ * + Added tint command to remove the tint through plugin command.
  *
  * Version 1.2.3:
  * * Corrected a bug where using the "Used with MV" plugin would make the game
@@ -622,6 +642,15 @@ Game_Screen.prototype.customTint = function(index) {
     $gameTime._tint = GameEditor.TOOLS.TimeCustomTint[index];
 };
 
+Game_Screen.prototype.resetTint = function() {
+    if (GameEditor.TOOLS.TimeEnabled === 'true') {
+        $gameTime._pauseTint = false;
+        $gameTime.updateTint();
+    } else {
+        $gameTime._tint = [255, 255, 255];
+    }
+};
+
 //-----------------------------------------------------------------------------
 // Scene_Map
 //
@@ -748,6 +777,21 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                     $gameTime.addNewSwitchLimit(new Switch_Limit(timeBegin, timeEnd, this.eventId(), this._mapId, selfSwitch));
                     break;
             }
+        }
+    }
+
+    if (command === 'Tint') {
+        switch (args[0].toLowerCase()) {
+            case 'set':
+                if (args.length === 4)
+                    $gameScreen.setTint(Number(args[1]), Number(args[2]), Number(args[3]));
+                else
+                    $gameScreen.customTint(Number(args[1]));
+                break;
+
+            case 'remove':
+                $gameScreen.resetTint();
+                break;
         }
     }
 };
