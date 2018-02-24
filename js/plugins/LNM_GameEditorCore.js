@@ -21,7 +21,7 @@
 var GameEditor = GameEditor || {};
 GameEditor.ACTIVE = false;
 GameEditor.TOOLS = {};
-var $gameEditor = null;
+let $gameEditor = null;
 
 //-----------------------------------------------------------------------------
 // rgbToHex
@@ -33,7 +33,7 @@ GameEditor.rgbToHex = function(r, g, b) {
     g = Math.floor(g).toString(16).padZero(2);
     b = Math.floor(b).toString(16).padZero(2);
     return '#' + r + g + b;
-}
+};
 
 //-----------------------------------------------------------------------------
 // StorageManager
@@ -43,15 +43,15 @@ GameEditor.rgbToHex = function(r, g, b) {
 // that's where we have access to the filesystem.
 
 StorageManager.localContentPath = function() {
-    var path = window.location.pathname.replace(/\/[^\/]*$/, '');
-    if (path.match(/^\/([A-Z]\:)/)) {
+    let path = window.location.pathname.replace(/\/[^\/]*$/, '');
+    if (path.match(/^\/([A-Z]:)/)) {
         path = path.slice(1);
     }
     if (path.lastIndexOf("/") !== path.length - 1) {
         path += "/";
     }
     return decodeURIComponent(path);
-}
+};
 
 //-----------------------------------------------------------------------------
 // Graphics._onKeyDown
@@ -89,11 +89,11 @@ ImageManager.loadEditor = function(filename, hue) {
 //
 // The scene class of the map screen.
 
-var GameEditor_Scene_Map_processMapTouch = Scene_Map.prototype.processMapTouch;
+const GameEditor_Scene_Map_processMapTouch = Scene_Map.prototype.processMapTouch;
 Scene_Map.prototype.processMapTouch = function() {
     if (GameEditor.ACTIVE) return;
     GameEditor_Scene_Map_processMapTouch.call(this);
-}
+};
 
 Scene_Map.prototype.onMapLoaded = function() {
     if (this._transfer) {
@@ -102,7 +102,7 @@ Scene_Map.prototype.onMapLoaded = function() {
     this.createDisplayObjects();
     $gameEditor = new Game_Editor;
     this.addChild($gameEditor);
-}
+};
 
 //-----------------------------------------------------------------------------
 // Game_Editor
@@ -119,14 +119,14 @@ Game_Editor.prototype.constructor = Game_Editor;
 Game_Editor.prototype.initialize = function() {
     PIXI.Container.call(this);
     this._buttons = 0;
-}
+};
 
 Game_Editor.prototype.addButton = function(filename, callback) {
     this.addChild(new ButtonImage(44 * this._buttons + 12, Graphics.height - 48, filename, function() {
         callback();
     }));
     this._buttons++;
-}
+};
 
 Game_Editor.prototype.update = function() {
     this.visible = GameEditor.ACTIVE;
@@ -137,11 +137,11 @@ Game_Editor.prototype.update = function() {
             }
         });
     }
-}
+};
 
 Game_Editor.prototype.toggle = function() {
     GameEditor.ACTIVE = !GameEditor.ACTIVE;
-}
+};
 
 //-----------------------------------------------------------------------------
 // Label
@@ -166,7 +166,7 @@ Label.prototype.initialize = function(x, y, text, align, fontSize, fontBold) {
     this.bitmap.fontFace = 'Arial';
     this.bitmap.fontSize = fontSize || 14;
     this.bitmap.fontBold = fontBold || false;
-}
+};
 
 Label.prototype._setAnchor = function() {
     switch (this.align) {
@@ -180,21 +180,21 @@ Label.prototype._setAnchor = function() {
             this.anchor = new PIXI.Point(1.0, 0.5);
             break;
     }
-}
+};
 
 Label.prototype.setText = function(text) {
     this.text = text;
     this.bitmap.width = this.text.length * 10;
-}
+};
 
 Label.prototype.update = function() {
-    var text = this.text;
-    var width = this.bitmap.width;
-    var height = this.bitmap.height;
-    var align = this.align;
+    const text = this.text;
+    const width = this.bitmap.width;
+    const height = this.bitmap.height;
+    const align = this.align;
     this.bitmap.clear();
     this.bitmap.drawText(text, 0, 0, width, height, align);
-}
+};
 
 //-----------------------------------------------------------------------------
 // ButtonSlider
@@ -219,32 +219,32 @@ ButtonSlider.prototype.initialize = function(x, y, width, min, max, callback) {
     this.value = null;
     this._createBar();
     this._createDrag();
-}
+};
 
 ButtonSlider.prototype._createBar = function() {
     this._bar = new Sprite();
     this._bar.bitmap = new Bitmap(this.barWidth, 5);
     this.addChild(this._bar);
-}
+};
 
 ButtonSlider.prototype._createDrag = function() {
     this._drag = new Sprite();
     this._drag.bitmap = new Bitmap(6, 32);
     this._drag.anchor = new PIXI.Point(0.5, 0.5);
     this.addChild(this._drag);
-}
+};
 
 ButtonSlider.prototype.update = function() {
     this._updateBitmaps();
     this._updateMouseBehavior();
-}
+};
 
 ButtonSlider.prototype._updateBitmaps = function() {
     this._bar.bitmap.clear();
-    this._bar.bitmap.fillRect(0, 0, this.barWidth, 5);
+    this._bar.bitmap.fillRect(0, 0, this.barWidth, 5, 'black');
     this._drag.bitmap.clear();
     this._drag.bitmap.fillRect(0, 0, 6, 32, 'white');
-}
+};
 
 ButtonSlider.prototype._updateMouseBehavior = function() {
     if (TouchInput.isPressed()) {
@@ -255,52 +255,52 @@ ButtonSlider.prototype._updateMouseBehavior = function() {
     if (TouchInput.isReleased()) {
         this._dragging = false;
     }
-    if (this._dragging == true) {
+    if (this._dragging === true) {
         this.drag();
     }
-}
+};
 
 ButtonSlider.prototype.drag = function() {
-    var mx = TouchInput.x;
-    var position = mx - this.x;
+    const mx = TouchInput.x;
+    let position = mx - this.x;
     if (position < 0) position = 0;
     if (position > this.barWidth) position = this.barWidth;
     this._drag.x = position;
     this._updateValue(this._drag.x);
-}
+};
 
 ButtonSlider.prototype.setValue = function(value) {
     this.value = value;
     this._drag.x = Math.floor((this.barWidth / this.max) * value);
-}
+};
 
 ButtonSlider.prototype._updateValue = function(x) {
-    var lastValue = this.value;
+    const lastValue = this.value;
     this.value = Math.floor((x / this.barWidth) * (this.max - this.min));
-    if (this.value != lastValue) {
+    if (this.value !== lastValue) {
         this.onChange(this.value);
     }
-}
+};
 
 ButtonSlider.prototype.onChange = function(value) {
     this._callback.call(this, value);
-}
+};
 
 ButtonSlider.prototype.isTriggered = function() {
-    var mx = TouchInput.x;
-    var my = TouchInput.y;
-    var rect = this.getRect();
+    const mx = TouchInput.x;
+    const my = TouchInput.y;
+    const rect = this.getRect();
     return (mx >= rect.x && mx <= rect.x + rect.width &&
         my >= rect.y && my <= rect.y + rect.height);
-}
+};
 
 ButtonSlider.prototype.getRect = function() {
-    var x = this.x + this._drag.x - (this._drag.width / 2);
-    var y = this.y + this._drag.y - (this._drag.height / 2);
-    var width = this._drag.width;
-    var height = this._drag.height;
+    const x = this.x + this._drag.x - (this._drag.width / 2);
+    const y = this.y + this._drag.y - (this._drag.height / 2);
+    const width = this._drag.width;
+    const height = this._drag.height;
     return new Rectangle(x, y, width, height);
-}
+};
 
 //-----------------------------------------------------------------------------
 // ButtonBase
@@ -321,7 +321,7 @@ ButtonBase.prototype.initialize = function(x, y, callback, hold) {
     this._callback = callback || null;
     this._hold = hold || false;
     this._holdTime = this._holdFrameCount = 10;
-}
+};
 
 ButtonBase.prototype.update = function() {
     if (TouchInput.isTriggered()) {
@@ -339,26 +339,26 @@ ButtonBase.prototype.update = function() {
         if (this._holdFrameCount <= 0 && this.isTriggered()) {
             this.onClick();
             this._holdFrameCount = this._holdTime;
-            return;
+
         }
     }
-}
+};
 
 ButtonBase.prototype.onClick = function() {
     this.alpha = 0.5;
     if (this._callback) this._callback.call(this);
-}
+};
 
 ButtonBase.prototype.onRelease = function() {
     this.alpha = 1;
-}
+};
 
 ButtonBase.prototype.isTriggered = function() {
-    var mx = TouchInput.x;
-    var my = TouchInput.y;
+    const mx = TouchInput.x;
+    const my = TouchInput.y;
     return (mx >= this.x && mx <= this.x + this.width &&
         my >= this.y && my <= this.y + this.height);
-}
+};
 
 //-----------------------------------------------------------------------------
 // ButtonImage
@@ -375,7 +375,7 @@ ButtonImage.prototype.constructor = ButtonImage;
 ButtonImage.prototype.initialize = function(x, y, image, callback) {
     ButtonBase.prototype.initialize.call(this, x, y, callback);
     this.bitmap = ImageManager.loadEditor(image);
-}
+};
 
 //-----------------------------------------------------------------------------
 // ButtonText
@@ -395,17 +395,17 @@ ButtonText.prototype.initialize = function(x, y, text, callback, hold) {
     this.bitmap = new Bitmap(this.text.length * 10, 25);
     this.bitmap.fontFace = 'Arial';
     this.bitmap.fontSize = 14;
-}
+};
 
 ButtonText.prototype.update = function() {
     ButtonBase.prototype.update.call(this);
-    var text = this.text;
-    var width = this.bitmap.width;
-    var height = this.bitmap.height;
+    const text = this.text;
+    const width = this.bitmap.width;
+    const height = this.bitmap.height;
     this.bitmap.clear();
     this.bitmap.fillRect(0, 0, width, height, 0x000000);
     this.bitmap.drawText(text, 0, 0, width, height, 'center');
-}
+};
 
 //-----------------------------------------------------------------------------
 // getColor
@@ -413,7 +413,7 @@ ButtonText.prototype.update = function() {
 // Help function to get a HUE color.
 
 GameEditor.getColor = function(h) {
-    var color = [
+    const color = [
         0xff0000, 0xff0400, 0xff0800, 0xff0d00, 0xff1100, 0xff1500, 0xff1900,
         0xff1e00, 0xff2200, 0xff2600, 0xff2a00, 0xff2f00, 0xff3300, 0xff3700,
         0xff3c00, 0xff4000, 0xff4400, 0xff4800, 0xff4d00, 0xff5100, 0xff5500,
@@ -466,6 +466,6 @@ GameEditor.getColor = function(h) {
         0xff0048, 0xff0044, 0xff0040, 0xff003c, 0xff0037, 0xff0033, 0xff002f,
         0xff002a, 0xff0026, 0xff0022, 0xff001e, 0xff0019, 0xff0015, 0xff0011,
         0xff000d, 0xff0008, 0xff0004
-    ]
+    ];
     return color[h];
-}
+};
