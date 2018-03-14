@@ -8,7 +8,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 //=============================================================================
 /*:
- * @plugindesc v1.3.4 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
+ * @plugindesc v1.3.5 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @requiredAssets img/editor/Lights.png
@@ -268,7 +268,10 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * ============================================================================
  * Changelog
  * ============================================================================
- * 
+ *
+ * Version 1.3.5:
+ * * Correct technical problems
+ *
  * Version 1.3.4:
  * * Solved a bug where Light LIMIT would turn on lights again after a battle,
  *   even if they aren't supposed to be turned on.
@@ -319,7 +322,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 // Parameter variables
 //=============================================================================
 
-GameEditor.Parameters = PluginManager.parameters('LNM_LightingTool');
+Array.prototype.push.apply(GameEditor.Parameters, PluginManager.parameters('LNM_LightingTool'));
 GameEditor.TOOLS.IncompatibilityFix = String(GameEditor.Parameters['Incompatibility fix'] || false);
 GameEditor.TOOLS.PlayerTorchFourDirections = String(GameEditor.Parameters['Player Torch 4 Directions'] || false);
 GameEditor.TOOLS.PlayerTorchSwitch = Number(GameEditor.Parameters['Player Torch Switch'] || 1);

@@ -7,7 +7,7 @@ var $gameTime = null;
 
 //=============================================================================
 /*:
- * @plugindesc v1.3.0 Adds control of time to the game, and night / day
+ * @plugindesc v1.4.0 Adds control of time to the game, and night / day
  * cycle. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
@@ -36,6 +36,16 @@ var $gameTime = null;
  * @param Show Clock on Map
  * @desc Shows the current time on the map (true / false)
  * @default false
+ *
+ * @param Clock Map X position
+ * @desc The x position of the top-left corner of the clock.
+ * A value of 0 is the left of the screen.
+ * @default 0
+ *
+ * @param Clock Map Y position
+ * @desc The y position of the top-left corner of the clock.
+ * A value of 0 is the top of the screen.
+ * @default 0
  *
  * @param ---Tints by time---
  * @default
@@ -233,6 +243,21 @@ var $gameTime = null;
  * Resets the tint to the time tint, or removes the tint if the time plugin is
  * disabled.
  *
+ * Clock MOVE x y
+ * Moves the clock window to coordinates (x,y).
+ * A negative coordinate will keep the window at the same position on the axis.
+ * -- Examples:
+ * 1. Clock MOVE 0 700
+ * Move the clock window to (0,700)
+ * 2. Clock MOVE 200 -1
+ * Change the horizontal position of the clock window to x=200
+ *
+ * Clock REL_MOVE x y
+ * Adds x and y values to the current position.
+ * -- Example:
+ * Clock REL_MOVE 50 0
+ * Will move the clock window from 50px to the right.
+ *
  * ============================================================================
  * Notetags
  * ============================================================================
@@ -264,6 +289,10 @@ var $gameTime = null;
  * ============================================================================
  * Changelog
  * ============================================================================
+ *
+ * Version 1.4.0:
+ * + Added possibility to move Clock window with configuration
+ * + Added possibility to move Clock window with plugin commands
  *
  * Version 1.3.0:
  * + Added tint command to set map tint through plugin command.
@@ -304,8 +333,7 @@ GameEditor.Parameters = PluginManager.parameters('LNM_GameTime');
 GameEditor.TOOLS.TimeEnabled = String(GameEditor.Parameters['Enabled'] || true);
 GameEditor.TOOLS.DefaultStartTimeStringList = String(GameEditor.Parameters['Default Time'] || '6:00').split(':');
 GameEditor.TOOLS.TimeLapse = Number(GameEditor.Parameters['Time Lapse Speed'] || 60);
-GameEditor.TOOLS.TimeShowClockMenu = String(GameEditor.Parameters['Show Clock in Menu'] || true);
-GameEditor.TOOLS.TimeShowClockMap = String(GameEditor.Parameters['Show Clock on Map'] || false);
+takeConfigClockWindow();
 GameEditor.TOOLS.TimeTint = [];
 GameEditor.TOOLS.TimeTint[0] = JSON.parse(String(GameEditor.Parameters['00.00'] || '[15, 20, 170]'));
 GameEditor.TOOLS.TimeTint[1] = JSON.parse(String(GameEditor.Parameters['01:00'] || '[9, 14, 150]'));
@@ -342,6 +370,13 @@ GameEditor.TOOLS.TimeCustomTint[7] = JSON.parse(String(GameEditor.Parameters['Cu
 GameEditor.TOOLS.TimeCustomTint[8] = JSON.parse(String(GameEditor.Parameters['Custom Tint 8'] || '[0, 0, 0]'));
 GameEditor.TOOLS.TimeCustomTint[9] = JSON.parse(String(GameEditor.Parameters['Custom Tint 9'] || '[0, 0, 0]'));
 GameEditor.TOOLS.TimeCustomTint[10] = JSON.parse(String(GameEditor.Parameters['Custom Tint 10'] || '[0, 0, 0]'));
+
+function takeConfigClockWindow() {
+    GameEditor.TOOLS.TimeShowClockMenu = String(GameEditor.Parameters['Show Clock in Menu'] || 'true');
+    GameEditor.TOOLS.TimeShowClockMap = String(GameEditor.Parameters['Show Clock on Map'] || 'false');
+    GameEditor.TOOLS.ClockMapXAxis = Number(GameEditor.Parameters['Clock Map X position'] || 0);
+    GameEditor.TOOLS.ClockMapYAxis = Number(GameEditor.Parameters['Clock Map Y position'] || 0);
+}
 
 
 //-----------------------------------------------------------------------------
@@ -714,6 +749,8 @@ var LNM_GameTime_DataManager_makeSaveContents = DataManager.makeSaveContents;
 DataManager.makeSaveContents = function() {
     var contents = LNM_GameTime_DataManager_makeSaveContents.call(this);
     contents.time = $gameTime;
+    contents.timeWindowX = GameEditor.TOOLS.ClockMapXAxis;
+    contents.timeWindowY = GameEditor.TOOLS.ClockMapYAxis;
     return contents;
 };
 
@@ -725,12 +762,17 @@ DataManager.extractSaveContents = function(contents) {
     var ct = new Time();
     $gameTime.__proto__ = gt.__proto__;
     $gameTime.time.__proto__ = ct.__proto__;
+
+    takeConfigClockWindow();
+    if (contents.timeWindowX != null) GameEditor.TOOLS.ClockMapXAxis = contents.timeWindowX;
+    if (contents.timeWindowY != null) GameEditor.TOOLS.ClockMapYAxis = contents.timeWindowY;
 };
 
 var FLZ_GameTime_DataManager_setupNewGame = DataManager.setupNewGame;
 DataManager.setupNewGame = function() {
     FLZ_GameTime_DataManager_setupNewGame.call(this);
     $gameTime.setTime(Number(GameEditor.TOOLS.DefaultStartTimeStringList[0]),Number(GameEditor.TOOLS.DefaultStartTimeStringList[1]));
+    takeConfigClockWindow();
 };
 
 //-----------------------------------------------------------------------------
@@ -791,6 +833,33 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
 
             case 'remove':
                 $gameScreen.resetTint();
+                break;
+        }
+    }
+
+    else if (command === 'Clock') {
+        var scene = SceneManager._scene;
+        switch (args[0].toLowerCase()) {
+            case 'move':
+                var x = Number(args[1]);
+                var y = Number(args[2]);
+                if (x >= 0) GameEditor.TOOLS.ClockMapXAxis = x;
+                if (y >= 0) GameEditor.TOOLS.ClockMapYAxis = y;
+
+                if (!(scene instanceof Scene_Map)) return;
+                scene._timeWindow.x = GameEditor.TOOLS.ClockMapXAxis;
+                scene._timeWindow.y = GameEditor.TOOLS.ClockMapYAxis;
+                break;
+
+            case 'rel_move':
+                var x = Number(args[1]);
+                var y = Number(args[2]);
+                GameEditor.TOOLS.ClockMapXAxis += x;
+                GameEditor.TOOLS.ClockMapYAxis += y;
+
+                if (!(scene instanceof Scene_Map)) return;
+                scene._timeWindow.x += x;
+                scene._timeWindow.y += y;
                 break;
         }
     }
@@ -860,10 +929,11 @@ Scene_Map.prototype.createAllWindows = function() {
 
 Scene_Map.prototype.createTimeWindow = function() {
     this._timeWindow = new Window_Time();
-    this._timeWindow.x = 0; // You can remove it, or change the 0 to change the top left position on the x axis.
-    this._timeWindow.y = 0; // You can remove it, or change the 0 to change the top left position on the y axis.
+    this._timeWindow.x = GameEditor.TOOLS.ClockMapXAxis;
+    this._timeWindow.y = GameEditor.TOOLS.ClockMapYAxis;
     this.addWindow(this._timeWindow);
 }
+
 } // endif
 
 //-----------------------------------------------------------------------------
