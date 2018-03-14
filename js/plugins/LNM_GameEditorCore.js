@@ -21,7 +21,7 @@
 var GameEditor = GameEditor || {};
 GameEditor.ACTIVE = false;
 GameEditor.TOOLS = {};
-let $gameEditor = null;
+var $gameEditor = null;
 
 //-----------------------------------------------------------------------------
 // rgbToHex
@@ -43,7 +43,7 @@ GameEditor.rgbToHex = function(r, g, b) {
 // that's where we have access to the filesystem.
 
 StorageManager.localContentPath = function() {
-    let path = window.location.pathname.replace(/\/[^\/]*$/, '');
+    var path = window.location.pathname.replace(/\/[^\/]*$/, '');
     if (path.match(/^\/([A-Z]:)/)) {
         path = path.slice(1);
     }
@@ -89,7 +89,7 @@ ImageManager.loadEditor = function(filename, hue) {
 //
 // The scene class of the map screen.
 
-const GameEditor_Scene_Map_processMapTouch = Scene_Map.prototype.processMapTouch;
+var GameEditor_Scene_Map_processMapTouch = Scene_Map.prototype.processMapTouch;
 Scene_Map.prototype.processMapTouch = function() {
     if (GameEditor.ACTIVE) return;
     GameEditor_Scene_Map_processMapTouch.call(this);
@@ -188,10 +188,10 @@ Label.prototype.setText = function(text) {
 };
 
 Label.prototype.update = function() {
-    const text = this.text;
-    const width = this.bitmap.width;
-    const height = this.bitmap.height;
-    const align = this.align;
+    var text = this.text;
+    var width = this.bitmap.width;
+    var height = this.bitmap.height;
+    var align = this.align;
     this.bitmap.clear();
     this.bitmap.drawText(text, 0, 0, width, height, align);
 };
@@ -261,8 +261,8 @@ ButtonSlider.prototype._updateMouseBehavior = function() {
 };
 
 ButtonSlider.prototype.drag = function() {
-    const mx = TouchInput.x;
-    let position = mx - this.x;
+    var mx = TouchInput.x;
+    var position = mx - this.x;
     if (position < 0) position = 0;
     if (position > this.barWidth) position = this.barWidth;
     this._drag.x = position;
@@ -275,7 +275,7 @@ ButtonSlider.prototype.setValue = function(value) {
 };
 
 ButtonSlider.prototype._updateValue = function(x) {
-    const lastValue = this.value;
+    var lastValue = this.value;
     this.value = Math.floor((x / this.barWidth) * (this.max - this.min));
     if (this.value !== lastValue) {
         this.onChange(this.value);
@@ -287,18 +287,18 @@ ButtonSlider.prototype.onChange = function(value) {
 };
 
 ButtonSlider.prototype.isTriggered = function() {
-    const mx = TouchInput.x;
-    const my = TouchInput.y;
-    const rect = this.getRect();
+    var mx = TouchInput.x;
+    var my = TouchInput.y;
+    var rect = this.getRect();
     return (mx >= rect.x && mx <= rect.x + rect.width &&
         my >= rect.y && my <= rect.y + rect.height);
 };
 
 ButtonSlider.prototype.getRect = function() {
-    const x = this.x + this._drag.x - (this._drag.width / 2);
-    const y = this.y + this._drag.y - (this._drag.height / 2);
-    const width = this._drag.width;
-    const height = this._drag.height;
+    var x = this.x + this._drag.x - (this._drag.width / 2);
+    var y = this.y + this._drag.y - (this._drag.height / 2);
+    var width = this._drag.width;
+    var height = this._drag.height;
     return new Rectangle(x, y, width, height);
 };
 
@@ -354,8 +354,8 @@ ButtonBase.prototype.onRelease = function() {
 };
 
 ButtonBase.prototype.isTriggered = function() {
-    const mx = TouchInput.x;
-    const my = TouchInput.y;
+    var mx = TouchInput.x;
+    var my = TouchInput.y;
     return (mx >= this.x && mx <= this.x + this.width &&
         my >= this.y && my <= this.y + this.height);
 };
@@ -399,9 +399,9 @@ ButtonText.prototype.initialize = function(x, y, text, callback, hold) {
 
 ButtonText.prototype.update = function() {
     ButtonBase.prototype.update.call(this);
-    const text = this.text;
-    const width = this.bitmap.width;
-    const height = this.bitmap.height;
+    var text = this.text;
+    var width = this.bitmap.width;
+    var height = this.bitmap.height;
     this.bitmap.clear();
     this.bitmap.fillRect(0, 0, width, height, 0x000000);
     this.bitmap.drawText(text, 0, 0, width, height, 'center');
@@ -413,7 +413,7 @@ ButtonText.prototype.update = function() {
 // Help function to get a HUE color.
 
 GameEditor.getColor = function(h) {
-    const color = [
+    var color = [
         0xff0000, 0xff0400, 0xff0800, 0xff0d00, 0xff1100, 0xff1500, 0xff1900,
         0xff1e00, 0xff2200, 0xff2600, 0xff2a00, 0xff2f00, 0xff3300, 0xff3700,
         0xff3c00, 0xff4000, 0xff4400, 0xff4800, 0xff4d00, 0xff5100, 0xff5500,

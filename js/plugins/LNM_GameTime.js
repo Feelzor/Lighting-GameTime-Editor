@@ -3,7 +3,7 @@
 //=============================================================================
 
 GameEditor.TOOLS.Time = false;
-let $gameTime = null;
+var $gameTime = null;
 
 //=============================================================================
 /*:
@@ -180,9 +180,9 @@ let $gameTime = null;
  * @default [0, 0, 0]
  *
  * @help
- * 
+ *
  * Disable the system time by changing the "Enabled" parameter.
- * 
+ *
  * ============================================================================
  * Plugin commands
  * ============================================================================
@@ -278,9 +278,9 @@ let $gameTime = null;
  * * Modified the parameter that shows the time clock into the menu.
  *
  * Version 1.2.1:
- * * Fixed a bug where deactivating time would make a black screen. 
+ * * Fixed a bug where deactivating time would make a black screen.
  * * Fixed a bug where spaces in the <Tint> note were mandatory.
- * 
+ *
  * Version 1.2.0:
  * + Added the possibility to store current time into variables.
  * + Added a default time value when starting a new game.
@@ -365,7 +365,7 @@ GameTime.prototype.update = function() {
     if (GameEditor.TOOLS.TimeEnabled === 'true') {
         if (!this._pause) {
             this.time.update();
-            for (let index in this.switchLimits) {
+            for (var index in this.switchLimits) {
                 this.switchLimits[index].update(this.time);
             }
         }
@@ -377,25 +377,25 @@ GameTime.prototype.update = function() {
 
 GameTime.prototype.updateTint = function() {
     if (!this._pauseTint && GameEditor.TOOLS.TimeEnabled === 'true') {
-        const minute = this.getTime('minute');
-        const rgb = this.getNewTint(minute);
+        var minute = this.getTime('minute');
+        var rgb = this.getNewTint(minute);
         if (rgb === this._tint) return;
         this._tint = rgb;
     }
 };
 
 GameTime.prototype.getNewTint = function(minute) {
-    const hour = this.getTime('hour');
-    const ctint = GameEditor.TOOLS.TimeTint[hour];
-    let ntint = null;
+    var hour = this.getTime('hour');
+    var ctint = GameEditor.TOOLS.TimeTint[hour];
+    var ntint = null;
     if (hour + 1 !== 24) {
         ntint = GameEditor.TOOLS.TimeTint[hour + 1];
     } else {
         ntint = GameEditor.TOOLS.TimeTint[0];
     }
-    const r = ctint[0] - ((ctint[0] - ntint[0]) * (minute / 60));
-    const g = ctint[1] - ((ctint[1] - ntint[1]) * (minute / 60));
-    const b = ctint[2] - ((ctint[2] - ntint[2]) * (minute / 60));
+    var r = ctint[0] - ((ctint[0] - ntint[0]) * (minute / 60));
+    var g = ctint[1] - ((ctint[1] - ntint[1]) * (minute / 60));
+    var b = ctint[2] - ((ctint[2] - ntint[2]) * (minute / 60));
     return [r, g, b];
 };
 
@@ -428,11 +428,11 @@ GameTime.prototype.pause = function() {
 };
 
 GameTime.prototype.getClock = function() {
-    let temp;
+    var temp;
     temp = "0" + this.time.hour;
-    const hour = temp.slice(-2);
+    var hour = temp.slice(-2);
     temp = "0" + this.time.minute;
-    const minutes = temp.slice(-2);
+    var minutes = temp.slice(-2);
     return hour + ":" + minutes;
 
 };
@@ -441,7 +441,7 @@ GameTime.prototype.addNewSwitchLimit = function(switchLimit) {
     if (this.switchLimits == null) { // Assures compatibility with v1.1.0 and older
         this.switchLimits = [];
     }
-    
+
     if (switchLimit) {
         this.switchLimits.push(switchLimit);
     }
@@ -518,7 +518,7 @@ function Time_Limit() {
 Time_Limit.prototype.initialize = function(timeBeginIn, timeEndIn) {
     this.hourBegin = Number(timeBeginIn[0]);
     this.minutesBegin = Number(timeBeginIn[1]);
-    
+
     this.hourEnd = Number(timeEndIn[0]);
     this.minutesEnd = Number(timeEndIn[1]);
 };
@@ -532,13 +532,13 @@ Time_Limit.prototype.update = function(time) {
 };
 
 Time_Limit.prototype.updateSameDay = function(time) {
-    const currentHour = time.getTime('hour');
-    const currentMinutes = time.getTime('minute');
+    var currentHour = time.getTime('hour');
+    var currentMinutes = time.getTime('minute');
     if (currentHour > this.hourBegin || (currentHour === this.hourBegin && currentMinutes >= this.minutesBegin)) {
         if (currentHour < this.hourEnd || (currentHour === this.hourEnd && currentMinutes <= this.minutesEnd)) {
             this.updateValue(true);
         }
-        
+
         else {
             this.updateValue(false);
         }
@@ -548,8 +548,8 @@ Time_Limit.prototype.updateSameDay = function(time) {
 };
 
 Time_Limit.prototype.updateDifferentDay = function(time) {
-    const currentHour = time.getTime('hour');
-    const currentMinutes = time.getTime('minute');
+    var currentHour = time.getTime('hour');
+    var currentMinutes = time.getTime('minute');
     if (currentHour > this.hourBegin || currentHour < this.hourEnd || (currentHour === this.hourBegin && currentMinutes >= this.minutesBegin) || (currentHour === this.hourEnd && currentMinutes <= this.minutesEnd)) {
         this.updateValue(true);
     } else {
@@ -575,7 +575,7 @@ Switch_Limit.prototype.initialize = function(timeBeginIn, timeEndIn, eventIdIn, 
     Time_Limit.prototype.initialize.call(this, timeBeginIn, timeEndIn);
     this.eventId = eventIdIn;
     this.mapId = mapIdIn;
-    
+
     switch (selfSwitchIn) {
         case 'A': case 'B': case 'C': case 'D':
             this.selfSwitch = selfSwitchIn;
@@ -584,13 +584,13 @@ Switch_Limit.prototype.initialize = function(timeBeginIn, timeEndIn, eventIdIn, 
             this.selfSwitch = 'A';
             break;
     }
-    
+
     this.lastValue = null;
 };
 
 Switch_Limit.prototype.updateValue = function(value) {
     if (this.lastValue !== value) {
-        const key = [this.mapId, this.eventId, this.selfSwitch];
+        var key = [this.mapId, this.eventId, this.selfSwitch];
         $gameSelfSwitches.setValue(key, value);
         this.lastValue = value;
     }
@@ -602,7 +602,7 @@ Switch_Limit.prototype.updateValue = function(value) {
 // The game object class for a map. It contains scrolling and passage
 // determination functions.
 
-const LNM_GameTime_Game_Map_setup = Game_Map.prototype.setup;
+var LNM_GameTime_Game_Map_setup = Game_Map.prototype.setup;
 Game_Map.prototype.setup = function(mapId) {
     LNM_GameTime_Game_Map_setup.call(this, mapId);
     this.processTintNotes();
@@ -610,9 +610,9 @@ Game_Map.prototype.setup = function(mapId) {
 
 Game_Map.prototype.processTintNotes = function() {
     if (!$dataMap.note) return;
-    const notetags = this.notetags();
-    for (let i = 0; i < notetags.length; i++) {
-        const line = notetags[i];
+    var notetags = this.notetags();
+    for (var i = 0; i < notetags.length; i++) {
+        var line = notetags[i];
         if (line.match(/<(?:Tint:)\s*(\d+)>/i)) {
             $gameScreen.customTint(RegExp.$1);
         }
@@ -656,7 +656,7 @@ Game_Screen.prototype.resetTint = function() {
 //
 // The scene class of the map screen.
 
-const gameTime_Scene_Map_create = Scene_Map.prototype.create;
+var gameTime_Scene_Map_create = Scene_Map.prototype.create;
 Scene_Map.prototype.create = function() {
     gameTime_Scene_Map_create.call(this);
     $gameTime.updateTint();
@@ -667,7 +667,7 @@ Scene_Map.prototype.create = function() {
 //
 // The superclass of all scenes within the game.
 
-const gameTime_Scene_Base_update = Scene_Base.prototype.update;
+var gameTime_Scene_Base_update = Scene_Base.prototype.update;
 Scene_Base.prototype.update = function() {
     gameTime_Scene_Base_update.call(this);
     if ($gameTime) { $gameTime.update(); }
@@ -704,30 +704,30 @@ Scene_MenuBase.prototype.inMenu = function() {
 //
 // The static class that manages the database and game objects.
 
-const LNM_GameTime_DataManager_createGameObjects = DataManager.createGameObjects;
+var LNM_GameTime_DataManager_createGameObjects = DataManager.createGameObjects;
 DataManager.createGameObjects = function() {
     LNM_GameTime_DataManager_createGameObjects.call(this);
     $gameTime = new GameTime();
 };
 
-const LNM_GameTime_DataManager_makeSaveContents = DataManager.makeSaveContents;
+var LNM_GameTime_DataManager_makeSaveContents = DataManager.makeSaveContents;
 DataManager.makeSaveContents = function() {
-    let contents = LNM_GameTime_DataManager_makeSaveContents.call(this);
+    var contents = LNM_GameTime_DataManager_makeSaveContents.call(this);
     contents.time = $gameTime;
     return contents;
 };
 
-const LNM_GameTime_DataManager_extractSaveContents = DataManager.extractSaveContents;
+var LNM_GameTime_DataManager_extractSaveContents = DataManager.extractSaveContents;
 DataManager.extractSaveContents = function(contents) {
     LNM_GameTime_DataManager_extractSaveContents.call(this, contents);
     $gameTime = contents.time;
-    const gt = new GameTime();
-    const ct = new Time();
+    var gt = new GameTime();
+    var ct = new Time();
     $gameTime.__proto__ = gt.__proto__;
     $gameTime.time.__proto__ = ct.__proto__;
 };
 
-const FLZ_GameTime_DataManager_setupNewGame = DataManager.setupNewGame;
+var FLZ_GameTime_DataManager_setupNewGame = DataManager.setupNewGame;
 DataManager.setupNewGame = function() {
     FLZ_GameTime_DataManager_setupNewGame.call(this);
     $gameTime.setTime(Number(GameEditor.TOOLS.DefaultStartTimeStringList[0]),Number(GameEditor.TOOLS.DefaultStartTimeStringList[1]));
@@ -738,7 +738,7 @@ DataManager.setupNewGame = function() {
 //
 // The interpreter for running event commands.
 
-const LNM_GameTime_Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
+var LNM_GameTime_Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
 Game_Interpreter.prototype.pluginCommand = function(command, args) {
     LNM_GameTime_Game_Interpreter_pluginCommand.call(this, command, args);
     if (GameEditor.TOOLS.TimeEnabled === 'true') {
@@ -746,8 +746,8 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
             switch (args[0].toLowerCase()) {
                 case 'pause':
                     if (args[1] && args[2]) {
-                        const hour = Number(args[1]);
-                        const minute = Number(args[2]);
+                        var hour = Number(args[1]);
+                        var minute = Number(args[2]);
                         $gameTime.setTime(hour, minute);
                     }
                     $gameTime.pause();
@@ -756,14 +756,14 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                     $gameTime.play();
                     break;
                 case 'set':
-                    const hour = Number(args[1]);
-                    const minute = Number(args[2]);
+                    var hour = Number(args[1]);
+                    var minute = Number(args[2]);
                     $gameTime.setTime(hour, minute);
                     $gameTime._pauseTint = false;
                     break;
                 case 'add':
-                    const hours = Number(args[1]);
-                    const minutes = Number(args[2]);
+                    var hours = Number(args[1]);
+                    var minutes = Number(args[2]);
                     $gameTime.addTime(hours, minutes);
                     break;
                 case 'save':
@@ -771,9 +771,9 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                     $gameVariables.setValue(Number(args[2]), $gameTime.getTime('minute'));
                     break;
                 case 'limit':
-                    const timeBegin = String(args[1]).split(':');
-                    const timeEnd = String(args[2]).split(':');
-                    const selfSwitch = String(args[3])[0].toUpperCase();
+                    var timeBegin = String(args[1]).split(':');
+                    var timeEnd = String(args[2]).split(':');
+                    var selfSwitch = String(args[3])[0].toUpperCase();
                     $gameTime.addNewSwitchLimit(new Switch_Limit(timeBegin, timeEnd, this.eventId(), this._mapId, selfSwitch));
                     break;
             }
@@ -797,14 +797,14 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
 };
 
 if (GameEditor.TOOLS.TimeEnabled === 'true') {
-    
+
 if (GameEditor.TOOLS.TimeShowClockMenu === 'true') {
 //-----------------------------------------------------------------------------
 // Scene_Menu
 //
 // The scene class of the menu screen.
 
-const LNM_GameTime_Scene_Menu_create = Scene_Menu.prototype.create;
+var LNM_GameTime_Scene_Menu_create = Scene_Menu.prototype.create;
 Scene_Menu.prototype.create = function() {
     LNM_GameTime_Scene_Menu_create.call(this);
     this.createTimeWindow();
@@ -823,20 +823,20 @@ if (GameEditor.TOOLS.TimeShowClockMap === 'true') {
 //
 // The scene class of the map screen.
 
-const FLZ_GameTime_Scene_Map_create = Scene_Map.prototype.create;
+var FLZ_GameTime_Scene_Map_create = Scene_Map.prototype.create;
 Scene_Map.prototype.create = function() {
     FLZ_GameTime_Scene_Map_create.call(this);
     this._timeWindowShown = null;
 };
 
-const FLZ_GameTime_Scene_Map_callMenu = Scene_Map.prototype.callMenu;
+var FLZ_GameTime_Scene_Map_callMenu = Scene_Map.prototype.callMenu;
 Scene_Map.prototype.callMenu = function() {
     FLZ_GameTime_Scene_Map_callMenu.call(this);
     this._timeWindow.hide();
     this._timeWindowShown = false;
 };
 
-const FLZ_GameTime_Scene_Map_update = Scene_Map.prototype.update;
+var FLZ_GameTime_Scene_Map_update = Scene_Map.prototype.update;
 Scene_Map.prototype.update = function() {
     FLZ_GameTime_Scene_Map_update.call(this);
     if (this._timeWindowShown != null) {
@@ -844,7 +844,7 @@ Scene_Map.prototype.update = function() {
             this._timeWindow.show();
             this._timeWindowShown = true;
         }
-        
+
         else if (!this.isActive() && this._timeWindowShown) {
             this._timeWindow.hide();
             this._timeWindowShown = false;
@@ -852,7 +852,7 @@ Scene_Map.prototype.update = function() {
     }
 };
 
-const FLZ_GameTime_Scene_Map_createAllWindows = Scene_Map.prototype.createAllWindows;
+var FLZ_GameTime_Scene_Map_createAllWindows = Scene_Map.prototype.createAllWindows;
 Scene_Map.prototype.createAllWindows = function() {
     FLZ_GameTime_Scene_Map_createAllWindows.call(this);
     this.createTimeWindow();
@@ -878,8 +878,8 @@ function Window_Time() {
 Window_Time.prototype = Object.create(Window_Base.prototype);
 Window_Time.prototype.constructor = Window_Time;
 Window_Time.prototype.initialize = function() {
-    const width = this.windowWidth();
-    const height = this.windowHeight();
+    var width = this.windowWidth();
+    var height = this.windowHeight();
     Window_Base.prototype.initialize.call(this, 0, 0, width, height);
 };
 
@@ -905,7 +905,7 @@ Window_Time.prototype.refresh = function() {
 // Editor
 //=============================================================================
 
-const LNM_GameTime_GameEditor_initialize = Game_Editor.prototype.initialize;
+var LNM_GameTime_GameEditor_initialize = Game_Editor.prototype.initialize;
 Game_Editor.prototype.initialize = function() {
     PIXI.Container.call(this);
     LNM_GameTime_GameEditor_initialize.call(this);
@@ -913,17 +913,17 @@ Game_Editor.prototype.initialize = function() {
 };
 
 Game_Editor.prototype._setupTimeEditor = function() {
-    const x = Graphics.width;
-    const y = Graphics.height;
+    var x = Graphics.width;
+    var y = Graphics.height;
     this.addButton('Time', function() {
         $gameEditor.toggleTimeEditor();
     });
     this.labelClock = new Label(x / 2 - 5, y - 60, $gameTime.getClock());
     this.sliderTime = new ButtonSlider(x / 2 - 279, y - 30, 558, 0, 1440, function(value) {
-        const calcHour = value / 60;
-        const hour = Math.min(Math.floor(calcHour), 23);
-        const calcMinute = calcHour - hour;
-        const minute = Math.min(Math.floor(calcMinute * 60), 59);
+        var calcHour = value / 60;
+        var hour = Math.min(Math.floor(calcHour), 23);
+        var calcMinute = calcHour - hour;
+        var minute = Math.min(Math.floor(calcMinute * 60), 59);
         $gameTime.setTime(hour, minute);
         $gameEditor.updateClock();
     });
@@ -947,11 +947,11 @@ Game_Editor.prototype.updateClock = function() {
 };
 
 Game_Editor.prototype.updateSlider = function() {
-    const value = $gameTime.getTime('hour') * 60 + $gameTime.getTime('minute');
+    var value = $gameTime.getTime('hour') * 60 + $gameTime.getTime('minute');
     this.sliderTime.setValue(value);
 };
 
-const LNM_GameTime_Game_Editor_toggle = Game_Editor.prototype.toggle;
+var LNM_GameTime_Game_Editor_toggle = Game_Editor.prototype.toggle;
 Game_Editor.prototype.toggle = function() {
     LNM_GameTime_Game_Editor_toggle.call(this);
     if (GameEditor.ACTIVE) {
