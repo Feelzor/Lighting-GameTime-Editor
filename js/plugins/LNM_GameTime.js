@@ -258,6 +258,21 @@ var $gameTime = null;
  * Clock REL_MOVE 50 0
  * Will move the clock window from 50px to the right.
  *
+ * Clock SHOW [map/menu]
+ * Shows the clock window in the menu or the map.
+ * If you don't specify which window to show, it will show the map window by
+ * default.
+ *
+ * Clock HIDE [map/menu]
+ * Hides the clock window of the menu or the map.
+ * If you don't specify which window to hide, it will hide the map window by
+ * default.
+ *
+ * Clock TOGGLE [map/menu]
+ * Toggles the visibility of the clock window in the menu or the map.
+ * If you don't specify which window to toggle, it will toggle the map window
+ * by default.
+ *
  * ============================================================================
  * Notetags
  * ============================================================================
@@ -333,7 +348,6 @@ GameEditor.Parameters = PluginManager.parameters('LNM_GameTime');
 GameEditor.TOOLS.TimeEnabled = String(GameEditor.Parameters['Enabled'] || true);
 GameEditor.TOOLS.DefaultStartTimeStringList = String(GameEditor.Parameters['Default Time'] || '6:00').split(':');
 GameEditor.TOOLS.TimeLapse = Number(GameEditor.Parameters['Time Lapse Speed'] || 60);
-takeConfigClockWindow();
 GameEditor.TOOLS.TimeTint = [];
 GameEditor.TOOLS.TimeTint[0] = JSON.parse(String(GameEditor.Parameters['00.00'] || '[15, 20, 170]'));
 GameEditor.TOOLS.TimeTint[1] = JSON.parse(String(GameEditor.Parameters['01:00'] || '[9, 14, 150]'));
@@ -370,8 +384,10 @@ GameEditor.TOOLS.TimeCustomTint[7] = JSON.parse(String(GameEditor.Parameters['Cu
 GameEditor.TOOLS.TimeCustomTint[8] = JSON.parse(String(GameEditor.Parameters['Custom Tint 8'] || '[0, 0, 0]'));
 GameEditor.TOOLS.TimeCustomTint[9] = JSON.parse(String(GameEditor.Parameters['Custom Tint 9'] || '[0, 0, 0]'));
 GameEditor.TOOLS.TimeCustomTint[10] = JSON.parse(String(GameEditor.Parameters['Custom Tint 10'] || '[0, 0, 0]'));
+takeConfigClockWindow();
 
 function takeConfigClockWindow() {
+    console.log(GameEditor.Parameters['Show Clock on Map']);
     GameEditor.TOOLS.TimeShowClockMenu = String(GameEditor.Parameters['Show Clock in Menu'] || 'true');
     GameEditor.TOOLS.TimeShowClockMap = String(GameEditor.Parameters['Show Clock on Map'] || 'false');
     GameEditor.TOOLS.ClockMapXAxis = Number(GameEditor.Parameters['Clock Map X position'] || 0);
@@ -751,6 +767,8 @@ DataManager.makeSaveContents = function() {
     contents.time = $gameTime;
     contents.timeWindowX = GameEditor.TOOLS.ClockMapXAxis;
     contents.timeWindowY = GameEditor.TOOLS.ClockMapYAxis;
+    contents.timeWindowMap = GameEditor.TOOLS.TimeShowClockMap;
+    contents.timeWindowMenu = GameEditor.TOOLS.TimeShowClockMenu;
     return contents;
 };
 
@@ -766,6 +784,8 @@ DataManager.extractSaveContents = function(contents) {
     takeConfigClockWindow();
     if (contents.timeWindowX != null) GameEditor.TOOLS.ClockMapXAxis = contents.timeWindowX;
     if (contents.timeWindowY != null) GameEditor.TOOLS.ClockMapYAxis = contents.timeWindowY;
+    if (contents.timeWindowMap != null) GameEditor.TOOLS.TimeShowClockMap = contents.timeWindowMap;
+    if (contents.timeWindowMenu != null) GameEditor.TOOLS.TimeShowClockMenu = contents.timeWindowMenu;
 };
 
 var FLZ_GameTime_DataManager_setupNewGame = DataManager.setupNewGame;
@@ -861,13 +881,45 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 scene._timeWindow.x += x;
                 scene._timeWindow.y += y;
                 break;
+
+            case 'show':
+                if (args[1] != null && args[1] === 'menu') { GameEditor.TOOLS.TimeShowClockMenu = 'true'; }
+                else {
+                    GameEditor.TOOLS.TimeShowClockMap = 'true';
+                    if (!(scene instanceof Scene_Map)) return;
+
+                    scene._timeWindow.show();
+                }
+                break;
+
+            case 'hide':
+                if (args[1] != null && args[1] === 'menu') { GameEditor.TOOLS.TimeShowClockMenu = 'false'; }
+                else {
+                    GameEditor.TOOLS.TimeShowClockMap = 'true';
+                    if (!(scene instanceof Scene_Map)) return;
+
+                    scene._timeWindow.hide();
+                }
+                break;
+
+            case 'toggle':
+                if (args[1] != null && args[1] === 'menu') {
+                    GameEditor.TOOLS.TimeShowClockMenu = (GameEditor.TOOLS.TimeShowClockMenu === 'true') ? 'false' : 'true';
+                }
+                else {
+                    GameEditor.TOOLS.TimeShowClockMap = (GameEditor.TOOLS.TimeShowClockMap === 'true') ? 'false' : 'true';
+                    if (!(scene instanceof Scene_Map)) return;
+
+                    if (GameEditor.TOOLS.TimeShowClockMap === 'true') { scene._timeWindow.show(); }
+                    else { scene._timeWindow.hide(); }
+                }
+                break;
         }
     }
 };
 
 if (GameEditor.TOOLS.TimeEnabled === 'true') {
 
-if (GameEditor.TOOLS.TimeShowClockMenu === 'true') {
 //-----------------------------------------------------------------------------
 // Scene_Menu
 //
@@ -882,11 +934,9 @@ Scene_Menu.prototype.create = function() {
 Scene_Menu.prototype.createTimeWindow = function() {
     this._timeWindow = new Window_Time();
     this._timeWindow.y = Graphics.boxHeight - this._timeWindow.height - this._goldWindow.height;
-    this.addWindow(this._timeWindow);
-}
-} // endif
+    if (GameEditor.TOOLS.TimeShowClockMenu === 'true') { this.addWindow(this._timeWindow); }
+};
 
-if (GameEditor.TOOLS.TimeShowClockMap === 'true') {
 //-----------------------------------------------------------------------------
 // Scene_Map
 //
@@ -908,7 +958,7 @@ Scene_Map.prototype.callMenu = function() {
 var FLZ_GameTime_Scene_Map_update = Scene_Map.prototype.update;
 Scene_Map.prototype.update = function() {
     FLZ_GameTime_Scene_Map_update.call(this);
-    if (this._timeWindowShown != null) {
+    if (this._timeWindowShown != null && GameEditor.TOOLS.TimeShowClockMap === 'true') {
         if (this.isActive() && !this._timeWindowShown) {
             this._timeWindow.show();
             this._timeWindowShown = true;
@@ -925,6 +975,13 @@ var FLZ_GameTime_Scene_Map_createAllWindows = Scene_Map.prototype.createAllWindo
 Scene_Map.prototype.createAllWindows = function() {
     FLZ_GameTime_Scene_Map_createAllWindows.call(this);
     this.createTimeWindow();
+
+    console.log(GameEditor.TOOLS.TimeShowClockMap);
+    if (GameEditor.TOOLS.TimeShowClockMap === 'true') {
+        this._timeWindow.show();
+    } else {
+        this._timeWindow.hide();
+    }
 };
 
 Scene_Map.prototype.createTimeWindow = function() {
@@ -932,9 +989,8 @@ Scene_Map.prototype.createTimeWindow = function() {
     this._timeWindow.x = GameEditor.TOOLS.ClockMapXAxis;
     this._timeWindow.y = GameEditor.TOOLS.ClockMapYAxis;
     this.addWindow(this._timeWindow);
-}
 
-} // endif
+};
 
 //-----------------------------------------------------------------------------
 // Window_Time
