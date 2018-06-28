@@ -7,7 +7,7 @@ var $gameTime = null;
 
 //=============================================================================
 /*:
- * @plugindesc v1.4.0 Adds control of time to the game, and night / day
+ * @plugindesc v1.4.1 Adds control of time to the game, and night / day
  * cycle. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
@@ -305,35 +305,38 @@ var $gameTime = null;
  * Changelog
  * ============================================================================
  *
+ * Version 1.4.1:
+ * * Correct bug with "Add" plugin command
+ *
  * Version 1.4.0:
- * + Added possibility to move Clock window with configuration
- * + Added possibility to move Clock window with plugin commands
+ * + Add possibility to move Clock window with configuration
+ * + Add possibility to move Clock window with plugin commands
  *
  * Version 1.3.0:
- * + Added tint command to set map tint through plugin command.
- * + Added tint command to remove the tint through plugin command.
+ * + Add tint command to set map tint through plugin command.
+ * + Add tint command to remove the tint through plugin command.
  *
  * Version 1.2.3:
- * * Corrected a bug where using the "Used with MV" plugin would make the game
+ * * Correct a bug where using the "Used with MV" plugin would make the game
  *   crash. Corrected the same bug for all other "splash screen" plugins.
  *
  * Version 1.2.2:
- * + Added the possibility to activate the time window on the map.
- * * Modified the parameter that shows the time clock into the menu.
+ * + Add the possibility to activate the time window on the map.
+ * * Modify the parameter that shows the time clock into the menu.
  *
  * Version 1.2.1:
- * * Fixed a bug where deactivating time would make a black screen.
- * * Fixed a bug where spaces in the <Tint> note were mandatory.
+ * * Fix a bug where deactivating time would make a black screen.
+ * * Fix a bug where spaces in the <Tint> note were mandatory.
  *
  * Version 1.2.0:
- * + Added the possibility to store current time into variables.
- * + Added a default time value when starting a new game.
- * + Added the possibility to change an event's self switch based on time.
+ * + Add the possibility to store current time into variables.
+ * + Add a default time value when starting a new game.
+ * + Add the possibility to change an event's self switch based on time.
  *
  * Version 1.1.0:
  * -- FeelZoR continues development
- * + Added the possibility to disable the time system.
- * * Corrected a bug where the custom tint set to the map would reset after
+ * + Add the possibility to disable the time system.
+ * * Correct a bug where the custom tint set to the map would reset after
  *      closing a menu.
  *
  * Version 1.00:
@@ -457,8 +460,8 @@ GameTime.prototype.setTime = function(hour, minute) {
 };
 
 GameTime.prototype.addTime = function(hours, minutes) {
-    if (hours) this.time.addHour(hours);
-    if (minutes) this.time.addMinute(minutes);
+    if (hours) this.time.addHours(hours);
+    if (minutes) this.time.addMinutes(minutes);
 };
 
 GameTime.prototype.getTime = function(type) {
@@ -520,22 +523,26 @@ Time.prototype.update = function() {
         if (SceneManager._scene.inBattle()) {
             return;
         }
-        this.addMinute();
+        this.addMinutes();
     }
 };
 
-Time.prototype.addMinute = function() {
-    this.minute++;
-    if (this.minute === 60) {
-        this.minute = 0;
-        this.addHour();
+Time.prototype.addMinutes = function(minutes) {
+    minutes = (typeof minutes == "undefined") ? 1 : minutes;
+
+    this.minute += minutes;
+    while (this.minute >= 60) {
+        this.minute -= 60;
+        this.addHours();
     }
 };
 
-Time.prototype.addHour = function() {
-    this.hour++;
-    if (this.hour === 24) {
-        this.hour = 0;
+Time.prototype.addHours = function(hours) {
+    hours = (typeof hours == "undefined") ? 1 : hours;
+
+    this.hour += hours;
+    while (this.hour >= 24) {
+        this.hour -= 24;
         this.addDay();
     }
 };
