@@ -390,7 +390,6 @@ GameEditor.TOOLS.TimeCustomTint[10] = JSON.parse(String(GameEditor.Parameters['C
 takeConfigClockWindow();
 
 function takeConfigClockWindow() {
-    console.log(GameEditor.Parameters['Show Clock on Map']);
     GameEditor.TOOLS.TimeShowClockMenu = String(GameEditor.Parameters['Show Clock in Menu'] || 'true');
     GameEditor.TOOLS.TimeShowClockMap = String(GameEditor.Parameters['Show Clock on Map'] || 'false');
     GameEditor.TOOLS.ClockMapXAxis = Number(GameEditor.Parameters['Clock Map X position'] || 0);
@@ -983,7 +982,6 @@ Scene_Map.prototype.createAllWindows = function() {
     FLZ_GameTime_Scene_Map_createAllWindows.call(this);
     this.createTimeWindow();
 
-    console.log(GameEditor.TOOLS.TimeShowClockMap);
     if (GameEditor.TOOLS.TimeShowClockMap === 'true') {
         this._timeWindow.show();
     } else {
