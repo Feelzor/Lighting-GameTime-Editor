@@ -380,8 +380,7 @@ function LightingController() {
  */
 LightingController.prototype.initialize = function() {
     this.clear();
-    this.addingLights = false;
-    this.removingLights = false;
+    this.lightData = new Light_Data()
 };
 
 /**
@@ -480,6 +479,29 @@ ImageManager.loadLight = function(filename, hue) {
 };
 
 //-----------------------------------------------------------------------------
+// Light_Data
+//
+// Stores the game data for all lights
+function Light_Data() {
+    this.initialize.apply(this, arguments)
+}
+
+Light_Data.prototype.initialize = function(data) {
+    this.data = (typeof data !== "undefined") ? data : {};
+};
+
+Light_Data.prototype.getData = function(lightId, dataName, defaultValue) {
+    if (!(lightId in this.data) || !(dataName in this.data[lightId])) return defaultValue;
+
+    return this.data[lightId][dataName];
+};
+
+Light_Data.prototype.setData = function(lightId, dataName, value) {
+    if (!(lightId in this.data)) this.data[lightId] = {};
+    this.data[lightId][dataName] = value;
+};
+
+//-----------------------------------------------------------------------------
 // Spriteset_Map
 //
 // The set of sprites on the map screen.
@@ -522,7 +544,7 @@ Spriteset_Map.prototype.update = function() {
 }
 
 Spriteset_Map.prototype.createLighting = function() {
-    $gameLighting = new LightingController();
+    $gameLighting.clear();
     this._lightingTexture = PIXI.RenderTexture.create(Graphics.width, Graphics.height);
     this._lightingSurface = new LightingSurface();
     this._lightingSprite = new PIXI.Sprite();
@@ -588,7 +610,7 @@ LightingSurface.prototype.createEditorLights = function(lightSourcesData) {
             var lightSourceData = lightSourcesData[i];
             var lightSource = new LightSource(lightSourceData.filename,
                 lightSourceData.x, lightSourceData.y, lightSourceData.hue,
-                lightSourceData.scale, lightSourceData.alpha);
+                lightSourceData.scale, lightSourceData.alpha, $gameLighting.list.length);
             if (lightSourceData.pulseAnimation === true) {
                 lightSource.setupPulseAnimation(lightSourceData.pulseMin,
                     lightSourceData.pulseMax, lightSourceData.pulseSpeed);
@@ -715,9 +737,9 @@ function LightSource() {
 LightSource.prototype = Object.create(Sprite.prototype);
 LightSource.prototype.constructor = LightSource;
 
-LightSource.prototype.initialize = function(filename, x, y, hue, scale, alpha) {
+LightSource.prototype.initialize = function(filename, x, y, hue, scale, alpha, index) {
     Sprite.prototype.initialize.call(this);
-    this._off = false;
+    this._off = !$gameLighting.lightData.getData(index, "powered", true);
     this.bitmap = ImageManager.loadLight(filename);
     this.filename = filename;
     this.ox = x;
@@ -744,10 +766,14 @@ LightSource.prototype.initialize = function(filename, x, y, hue, scale, alpha) {
 
 LightSource.prototype.turnOff = function() {
     this._off = true;
+    var index = $gameLighting.list.indexOf(this);
+    $gameLighting.lightData.setData(index, "powered", !this._off);
 };
 
 LightSource.prototype.turnOn = function() {
     this._off = false;
+    var index = $gameLighting.list.indexOf(this);
+    $gameLighting.lightData.setData(index, "powered", !this._off);
 };
 
 LightSource.prototype.setupPulseAnimation = function(pulseMin, pulseMax, pulseSpeed) {
@@ -1869,4 +1895,36 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 break;*/
         }
     }
+};
+
+//-----------------------------------------------------------------------------
+// DataManager
+//
+// The static class that manages the database and game objects.
+
+
+var FLZ_LightingTool_DataManager_createGameObjects = DataManager.createGameObjects;
+DataManager.createGameObjects = function() {
+    FLZ_LightingTool_DataManager_createGameObjects.call(this);
+    $gameLighting = new LightingController();
+};
+
+var FLZ_LightingTool_DataManager_makeSaveContents = DataManager.makeSaveContents;
+DataManager.makeSaveContents = function() {
+    var contents = FLZ_LightingTool_DataManager_makeSaveContents.call(this);
+    contents.lightData = $gameLighting.lightData;
+    return contents;
+};
+
+var FLZ_LightingTool_DataManager_extractSaveContents = DataManager.extractSaveContents;
+DataManager.extractSaveContents = function(contents) {
+    FLZ_LightingTool_DataManager_extractSaveContents.call(this, contents);
+    if (typeof contents.lightData !== "undefined") $gameLighting.lightData = contents.lightData;
+    else $gameLighting.lightData = new Light_Data();
+};
+
+var FLZ_LightingTool_DataManager_setupNewGame = DataManager.setupNewGame;
+DataManager.setupNewGame = function() {
+    FLZ_LightingTool_DataManager_setupNewGame.call(this);
+    $gameLighting.lightData = new Light_Data();
 };
