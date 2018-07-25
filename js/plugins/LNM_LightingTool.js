@@ -32,7 +32,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * @default false
  *
  * @param Player Torch Switch
- * @desc To activates or desactivates player's torch
+ * @desc To activate or deactivate player's torch
  * @default 1
  *
  * @param Player Torch Filename
