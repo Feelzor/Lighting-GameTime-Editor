@@ -347,7 +347,7 @@ var $gameTime = null;
 //=============================================================================
 // Parameter variables
 //=============================================================================
-GameEditor.Parameters = PluginManager.parameters('LNM_GameTime');
+GameEditor.Parameters = Object.assign({}, GameEditor.Parameters, PluginManager.parameters('LNM_GameTime'));
 GameEditor.TOOLS.TimeEnabled = String(GameEditor.Parameters['Enabled'] || true);
 GameEditor.TOOLS.DefaultStartTimeStringList = String(GameEditor.Parameters['Default Time'] || '6:00').split(':');
 GameEditor.TOOLS.TimeLapse = Number(GameEditor.Parameters['Time Lapse Speed'] || 60);

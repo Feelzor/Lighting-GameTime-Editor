@@ -8,7 +8,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 //=============================================================================
 /*:
- * @plugindesc v1.4.0 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
+ * @plugindesc v1.4.1 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @requiredAssets img/editor/Lights.png
@@ -286,6 +286,9 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * Changelog
  * ============================================================================
  *
+ * Version 1.4.1:
+ * * Correct a bug where parameters would not be taken in account.
+ *
  * Version 1.4.0:
  * + Add the possibility to use commands on event lights.
  * + Add the possibility to set a temporary hue to lights.
@@ -345,7 +348,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 // Parameter variables
 //=============================================================================
 
-Array.prototype.push.apply(GameEditor.Parameters, PluginManager.parameters('LNM_LightingTool'));
+GameEditor.Parameters = Object.assign({}, GameEditor.Parameters, PluginManager.parameters('LNM_LightingTool'));
 GameEditor.TOOLS.IncompatibilityFix = String(GameEditor.Parameters['Incompatibility fix'] || false);
 GameEditor.TOOLS.PlayerTorchFourDirections = String(GameEditor.Parameters['Player Torch 4 Directions'] || false);
 GameEditor.TOOLS.PlayerTorchSwitch = Number(GameEditor.Parameters['Player Torch Switch'] || 1);
