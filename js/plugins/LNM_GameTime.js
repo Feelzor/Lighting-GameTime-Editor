@@ -7,7 +7,7 @@ var $gameTime = null;
 
 //=============================================================================
 /*:
- * @plugindesc v1.4.1 Adds control of time to the game, and night / day
+ * @plugindesc v1.5.0 Adds control of time to the game, and night / day
  * cycle. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
@@ -203,10 +203,10 @@ var $gameTime = null;
  * Time PLAY
  * Reactivates time.
  *
- * Time SET hour minutes
+ * Time SET time
  * Sets game’s time to a specific time.
  * -- Example:
- * Time SET 15 0
+ * Time SET 15:00
  * Sets game’s time to three in the afternoon.
  *
  * Time ADD hours minutes
@@ -304,6 +304,9 @@ var $gameTime = null;
  * ============================================================================
  * Changelog
  * ============================================================================
+ *
+ * Version 1.5.0:
+ * + Add the possibility to use Time SET xx:xx instead of Time SET xx xx
  *
  * Version 1.4.1:
  * * Correct bug with "Add" plugin command
@@ -824,9 +827,10 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                     $gameTime.play();
                     break;
                 case 'set':
-                    var hour = Number(args[1]);
-                    var minute = Number(args[2]);
-                    $gameTime.setTime(hour, minute);
+                    var time = null;
+                    if (args.length === 3) time = [args[1], args[2]];
+                    else time = args[1].split(':');
+                    $gameTime.setTime(Number(time[0]), Number(time[1]));
                     $gameTime._pauseTint = false;
                     break;
                 case 'add':
