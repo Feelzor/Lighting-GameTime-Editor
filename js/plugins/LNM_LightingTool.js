@@ -8,7 +8,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 //=============================================================================
 /*:
- * @plugindesc v1.3.5 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
+ * @plugindesc v1.4.0 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @requiredAssets img/editor/Lights.png
@@ -221,7 +221,13 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * ============================================================================
  * Commands
  * ============================================================================
- * 
+ *
+ * For the following commands, light_id is the id of the light. It can be found
+ * in the In-Game editor on the top right corner of the screen. For event
+ * lights, the id starts with an e and is followed by the id of the event
+ * (without the first 0). For example, the light for event 0042 will have id
+ * “e42”.
+ *
  * Light ON light_id - Turns on the light with the corresponding id (can be
  *                        found in the editor).
  *
@@ -235,7 +241,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  *     10:00pm and 6:00am.
  *
  * Light HUE hue_value light_id
- * Sets changes the color of the light with the corresponding id temporarily
+ * Changes the color of the light with the corresponding id temporarily
  * (just in the current save) to the one specified by the hue.
  * eg: Light HUE 120 4 will make the light with id 4 green
  *
@@ -279,6 +285,12 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * ============================================================================
  * Changelog
  * ============================================================================
+ *
+ * Version 1.4.0:
+ * + Add the possibility to use commands on event lights.
+ * + Add the possibility to set a temporary hue to lights.
+ * * Correct a bug where turned off lights would turn on again after going in
+ * the menu.
  *
  * Version 1.3.5:
  * * Correct technical problems
@@ -405,7 +417,7 @@ LightingController.prototype.clear = function() {
     this.addingLightsList = [];
     this.removingLights = false;
     this.removingLightsList = [];
-    this.eventList = [];
+    this.eventList = {};
 };
 
 /**
@@ -472,6 +484,21 @@ LightingController.prototype.remove = function(lightSource) {
  */
 LightingController.prototype.save = function() {
     $gameMap.saveLightingData();
+};
+
+/**
+ * Gets the light with the specified id
+ *
+ * @param id The id of the light. Start with "e" if it is a light from an event
+ * @return LightSource | LightSourceEvent
+ */
+LightingController.prototype.getLightById = function(id) {
+    if (id.toLowerCase().startsWith("e")) {
+        id = id.substring(1);
+        return this.eventList[Number(id)];
+    }
+
+    return this.list[Number(id)];
 };
 
 //-----------------------------------------------------------------------------
@@ -684,7 +711,7 @@ LightingSurface.prototype.addLightSourceToEvent = function(type, x, y, eventId) 
             break;
     }
     this.addChild(lightSource);
-    $gameLighting.eventList.push(lightSource);
+    $gameLighting.eventList[eventId] = lightSource;
 };
 
 LightingSurface.prototype.setupPulseAnimationToEvent = function(lightSource, params) {
@@ -987,7 +1014,7 @@ LightSourceEvent.prototype = Object.create(LightSource.prototype);
 LightSourceEvent.prototype.constructor = LightSourceEvent;
 
 LightSourceEvent.prototype.initialize = function(filename, x, y, hue, scale, alpha, eventId) {
-    LightSource.prototype.initialize.call(this, filename, x, y, hue, scale, alpha);
+    LightSource.prototype.initialize.call(this, filename, x, y, hue, scale, alpha, "e" + String(this.eventId));
     this.eventId = eventId;
     this.ox = this.getOriginX(x);
     this.oy = this.getOriginY(y);
@@ -1255,12 +1282,8 @@ Game_Map.prototype.refresh = function() {
 var LNM_LightingTool_Game_Map_eraseEvent = Game_Map.prototype.eraseEvent;
 Game_Map.prototype.eraseEvent = function(eventId) {
     LNM_LightingTool_Game_Map_eraseEvent.call(this, eventId);
-    for (var i = 0; i < $gameLighting.eventList.length; i++) {
-        if ($gameLighting.eventList[i].eventId === eventId) {
-            $gameLighting.removingLightsList.push($gameLighting.eventList[i]);
-            $gameLighting.removingLights = true;
-        }
-    }
+    $gameLighting.removingLightsList.push($gameLighting.eventList[eventId]);
+    $gameLighting.removingLights = true;
 };
 
 //-----------------------------------------------------------------------------
@@ -1868,8 +1891,8 @@ Light_Limit.prototype.initialize = function(timeBeginIn, timeEndIn, lightIdIn) {
 Light_Limit.prototype.updateValue = function(value) {
     if (this._lastValue !== value) {
         this._lastValue = value;
-        if (value) { $gameLighting.list[this.lightId].turnOn(); } 
-        else { $gameLighting.list[this.lightId].turnOff(); }
+        if (value) { $gameLighting.getLightById(this.lightId).turnOn(); }
+        else { $gameLighting.getLightById(this.lightId).turnOff(); }
     }
 };
 
@@ -1918,22 +1941,22 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
     if (command === 'Light') {
         switch (args[0].toLowerCase()) {
             case 'on':
-                $gameLighting.list[Number(args[1])].turnOn();
+                $gameLighting.getLightById(args[1]).turnOn();
                 break;
             case 'off':
-                $gameLighting.list[Number(args[1])].turnOff();
+                $gameLighting.getLightById(args[1]).turnOff();
                 break;
             case 'limit':
                 var timeBegin = String(args[1]).split(':');
                 var timeEnd = String(args[2]).split(':');
-                $gameTime.addLightLimit(new Light_Limit(timeBegin, timeEnd, Number(args[3])));
+                $gameTime.addLightLimit(new Light_Limit(timeBegin, timeEnd, args[3]));
                 break;
             case 'hue':
                 if (args[1].toLowerCase() === "remove" || args[1].toLowerCase() === "reset")
-                    $gameLighting.list[Number(args[2])].removeTemporaryColor();
+                    $gameLighting.getLightById(args[2]).removeTemporaryColor();
                 else {
                     var newHue = Number(args[1]);
-                    $gameLighting.list[Number(args[2])].setTemporaryColor(newHue);
+                    $gameLighting.getLightById(args[2]).setTemporaryColor(newHue);
                 }
                 break;
         }
