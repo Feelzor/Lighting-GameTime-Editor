@@ -233,6 +233,17 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * editor) automatically depending on the time.
  * eg: Light LIMIT 22:00 6:00 1 will turn on the light with id 1 between
  *     10:00pm and 6:00am.
+ *
+ * Light HUE hue_value light_id
+ * Sets changes the color of the light with the corresponding id temporarily
+ * (just in the current save) to the one specified by the hue.
+ * eg: Light HUE 120 4 will make the light with id 4 green
+ *
+ * Light HUE RESET light_id
+ * Removes the temporary color of the light with the corresponding id and use
+ * the default light color again.
+ * N.B. : REMOVE can be used instead of RESET.
+ * eg: Light HUE RESET 2 will remove the temporary color of the light with id 2
  * 
  * ============================================================================
  * Player torch
@@ -501,6 +512,11 @@ Light_Data.prototype.setData = function(lightId, dataName, value) {
     this.data[lightId][dataName] = value;
 };
 
+Light_Data.prototype.removeData = function(lightId, dataName) {
+    if (!(lightId in this.data)) this.data[lightId] = {};
+    delete this.data[lightId][dataName];
+};
+
 //-----------------------------------------------------------------------------
 // Spriteset_Map
 //
@@ -739,7 +755,8 @@ LightSource.prototype.constructor = LightSource;
 
 LightSource.prototype.initialize = function(filename, x, y, hue, scale, alpha, index) {
     Sprite.prototype.initialize.call(this);
-    this._off = !$gameLighting.lightData.getData(index, "powered", true);
+    this.id = index;
+    this._off = !this.getTempData("powered", true);
     this.bitmap = ImageManager.loadLight(filename);
     this.filename = filename;
     this.ox = x;
@@ -761,19 +778,35 @@ LightSource.prototype.initialize = function(filename, x, y, hue, scale, alpha, i
     
     // Temporary elements
     this._hasTemporaryHue = false;
-    this._temporaryHue = null;
+    var tempHue = this.getTempData("hue", undefined);
+    if (typeof tempHue !== "undefined") this.setTemporaryColor(tempHue);
+};
+
+LightSource.prototype.getId = function() {
+    if (typeof this.id === "undefined") this.id = $gameLighting.list.indexOf(this);
+    return this.id;
+};
+
+LightSource.prototype.addTempData = function(dataName, value) {
+    $gameLighting.lightData.setData(this.getId(), dataName, value);
+};
+
+LightSource.prototype.getTempData = function(dataName, defaultValue) {
+    return $gameLighting.lightData.getData(this.getId(), dataName, defaultValue);
+};
+
+LightSource.prototype.removeTempData = function(dataName) {
+    $gameLighting.lightData.removeData(this.getId(), dataName);
 };
 
 LightSource.prototype.turnOff = function() {
     this._off = true;
-    var index = $gameLighting.list.indexOf(this);
-    $gameLighting.lightData.setData(index, "powered", !this._off);
+    this.addTempData("powered", !this._off);
 };
 
 LightSource.prototype.turnOn = function() {
     this._off = false;
-    var index = $gameLighting.list.indexOf(this);
-    $gameLighting.lightData.setData(index, "powered", !this._off);
+    this.addTempData("powered", !this._off);
 };
 
 LightSource.prototype.setupPulseAnimation = function(pulseMin, pulseMax, pulseSpeed) {
@@ -847,8 +880,14 @@ LightSource.prototype.modifyColor = function(hue) {
 
 LightSource.prototype.setTemporaryColor = function(hue) {
     this._hasTemporaryHue = true;
-    this._temporaryHue = hue;
+    this.addTempData("hue", hue);
     this.tint = Number(GameEditor.getColor(hue) || 0xFFFFFF);
+};
+
+LightSource.prototype.removeTemporaryColor = function() {
+    this._hasTemporaryHue = false;
+    this.removeTempData("hue");
+    this.modifyColor(this.hue);
 };
 
 LightSource.prototype._updatePosition = function() {
@@ -1889,10 +1928,14 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 var timeEnd = String(args[2]).split(':');
                 $gameTime.addLightLimit(new Light_Limit(timeBegin, timeEnd, Number(args[3])));
                 break;
-            /*case 'hue':
-                var newHue = Number(args[1]);
-                $gameLighting.list[Number(args[2])].setTemporaryColor(newHue);
-                break;*/
+            case 'hue':
+                if (args[1].toLowerCase() === "remove" || args[1].toLowerCase() === "reset")
+                    $gameLighting.list[Number(args[2])].removeTemporaryColor();
+                else {
+                    var newHue = Number(args[1]);
+                    $gameLighting.list[Number(args[2])].setTemporaryColor(newHue);
+                }
+                break;
         }
     }
 };
