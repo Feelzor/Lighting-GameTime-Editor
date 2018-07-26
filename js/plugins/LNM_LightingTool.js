@@ -413,7 +413,7 @@ LightingController.prototype.initialize = function() {
  * Initializes all attributes to their default values
  */
 LightingController.prototype.clear = function() {
-    this.list = [];
+    this.list = {nextId: 0};
     this.refresh = false;
     this.playerTorch = null;
     this.addingLights = false;
@@ -463,10 +463,15 @@ LightingController.prototype.checkPlayerTorch = function() {
  *
  * @param lightSource The source to add.
  */
-LightingController.prototype.add = function(lightSource) {
+LightingController.prototype.add = function(lightSource, id) {
+    if (typeof id === "undefined") {
+        id = this.list.nextId;
+        this.list.nextId++;
+    }
+
     this.addingLightsList.push(lightSource);
     this.addingLights = true;
-    this.list.push(lightSource);
+    this.list[id] = lightSource;
 };
 
 /**
@@ -477,8 +482,8 @@ LightingController.prototype.add = function(lightSource) {
 LightingController.prototype.remove = function(lightSource) {
     this.removingLightsList.push(lightSource);
     this.removingLights = true;
-    var index = this.list.indexOf(lightSource);
-    this.list.splice(index, 1);
+    var index = this.getIdOfLight(lightSource);
+    delete this.list[index];
     this.save();
 };
 
@@ -492,8 +497,8 @@ LightingController.prototype.save = function() {
 /**
  * Gets the light with the specified id
  *
- * @param id The id of the light. Start with "e" if it is a light from an event
- * @return LightSource | LightSourceEvent
+ * @param {string} id The id of the light. Start with "e" if it is a light from an event
+ * @return {LightSource | LightSourceEvent}
  */
 LightingController.prototype.getLightById = function(id) {
     if (id.toLowerCase().startsWith("e")) {
@@ -502,6 +507,19 @@ LightingController.prototype.getLightById = function(id) {
     }
 
     return this.list[Number(id)];
+};
+
+/**
+ * Get the id of the light
+ * @param {LightSource} light The light to search, mustn't be an event light
+ * @returns {int|null} The id of the light
+ */
+LightingController.prototype.getIdOfLight = function(light) {
+    for (var key in this.list) {
+        if (this.list[key] === light) return key;
+    }
+
+    return null;
 };
 
 //-----------------------------------------------------------------------------
@@ -652,11 +670,19 @@ LightingSurface.prototype._createLights = function() {
 
 LightingSurface.prototype.createEditorLights = function(lightSourcesData) {
     if (lightSourcesData) {
-        for (var i = 0; i < lightSourcesData.length; i++) {
-            var lightSourceData = lightSourcesData[i];
+        var keyArray = Object.keys(lightSourcesData);
+        for (var i = 0; i < keyArray.length; i++) {
+            var key = keyArray[i];
+
+            if (key === "nextId") {
+                $gameLighting.list.nextId = lightSourcesData.nextId;
+                continue;
+            }
+
+            var lightSourceData = lightSourcesData[key];
             var lightSource = new LightSource(lightSourceData.filename,
                 lightSourceData.x, lightSourceData.y, lightSourceData.hue,
-                lightSourceData.scale, lightSourceData.alpha, $gameLighting.list.length);
+                lightSourceData.scale, lightSourceData.alpha, $gameLighting.list.nextId);
             if (lightSourceData.pulseAnimation === true) {
                 lightSource.setupPulseAnimation(lightSourceData.pulseMin,
                     lightSourceData.pulseMax, lightSourceData.pulseSpeed);
@@ -666,7 +692,7 @@ LightingSurface.prototype.createEditorLights = function(lightSourcesData) {
                     lightSourceData.flickSpeed);
             }
             this.addChild(lightSource);
-            $gameLighting.list.push(lightSource);
+            $gameLighting.add(lightSource, key);
         }
     }
 };
@@ -753,18 +779,18 @@ LightingSurface.prototype.update = function() {
 LightingSurface.prototype._updateLights = function() {
     if ($gameLighting.addingLights === true) {
         var list = $gameLighting.addingLightsList;
-        for (var i = 0; i < list.length; i++) {
-            this.addChild(list[i]);
-            $gameLighting.addingLightsList.splice(i, 1);
+        while (list.length) {
+            this.addChild(list[0]);
+            $gameLighting.addingLightsList.splice(0, 1);
         }
         $gameLighting.addingLights = false;
         $gameLighting.refresh = true;
     }
     if ($gameLighting.removingLights === true) {
         var list = $gameLighting.removingLightsList;
-        for (var i = 0; i < list.length; i++) {
-            this.removeChild(list[i]);
-            $gameLighting.removingLightsList.splice(i, 1);
+        while (list.length) {
+            this.removeChild(list[0]);
+            $gameLighting.removingLightsList.splice(0, 1);
         }
         $gameLighting.removingLights = false;
         $gameLighting.refresh = true;
@@ -813,7 +839,7 @@ LightSource.prototype.initialize = function(filename, x, y, hue, scale, alpha, i
 };
 
 LightSource.prototype.getId = function() {
-    if (typeof this.id === "undefined") this.id = $gameLighting.list.indexOf(this);
+    if (typeof this.id === "undefined") this.id = $gameLighting.getIdOfLight(this);
     return this.id;
 };
 
@@ -1263,7 +1289,17 @@ Game_Map.prototype.setup = function(mapId) {
 };
 
 Game_Map.prototype.getLightingData = function(instance) {
-    return this._lightingMapData.load(instance);
+    var data = this._lightingMapData.load(instance);
+    if (Array.isArray(data)) {
+        var dataCopy = data;
+        data = {}
+        for (var i = 0; i < dataCopy.length; i++) {
+            data[i] = dataCopy[i];
+        }
+        data.nextId = dataCopy.length;
+    }
+
+    return data;
 };
 
 Game_Map.prototype.saveLightingData = function() {
@@ -1336,13 +1372,14 @@ Lighting_Map.prototype.save = function() {
 };
 
 Lighting_Map.prototype._generateData = function() {
-    var data = [];
-    for (var i = 0; i < $gameLighting.list.length; i++) {
-        if ($gameLighting.list[i].eventId == null) {
-            var lightSourceData = $gameLighting.list[i].getData();
-            data.push(lightSourceData);
+    var data = {};
+    Object.keys($gameLighting.list).forEach(function(key) {
+        if (key === "nextId") {
+            data.nextId = $gameLighting.list.nextId;
+        } else if ($gameLighting.list[key].eventId == null) {
+            data[key] = $gameLighting.list[key].getData();
         }
-    }
+    });
     return data;
 };
 
@@ -1646,7 +1683,7 @@ Lighting_Tool.prototype._createLabels = function() {
 
 Lighting_Tool.prototype.setLight = function(lightSource) {
     this.lightSource = lightSource;
-    this.lightSourceId = $gameLighting.list.indexOf(lightSource);
+    this.lightSourceId = $gameLighting.getIdOfLight(lightSource);
     this.show();
 };
 
@@ -1713,8 +1750,8 @@ LightIconsSurface.prototype.initialize = function() {
 };
 
 LightIconsSurface.prototype._createIcons = function() {
-    for (var i = 0; i < $gameLighting.list.length; i++) {
-        var lightSourceIcon = new LightSourceIcon($gameLighting.list[i]);
+    for (var key in $gameLighting.list) {
+        var lightSourceIcon = new LightSourceIcon($gameLighting.list[key]);
         this.addChild(lightSourceIcon);
     }
 };
@@ -1726,8 +1763,8 @@ LightIconsSurface.prototype.update = function() {
             while (this.children[0]) {
                 this.removeChild(this.children[0]);
             }
-            for (var i = 0; i < $gameLighting.list.length; i++) {
-                var lightSourceIcon = new LightSourceIcon($gameLighting.list[i]);
+            for (var key in $gameLighting.list) {
+                var lightSourceIcon = new LightSourceIcon($gameLighting.list[key]);
                 this.addChild(lightSourceIcon);
             }
             $gameLighting.refresh = false;
