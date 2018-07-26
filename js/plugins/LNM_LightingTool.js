@@ -8,7 +8,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 //=============================================================================
 /*:
- * @plugindesc v1.4.1 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
+ * @plugindesc v1.5.0 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @requiredAssets img/editor/Lights
@@ -285,6 +285,11 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * ============================================================================
  * Changelog
  * ============================================================================
+ *
+ * Version 1.5.0:
+ * * Corrected a bug where required assets weren't taken in account.
+ * * Changed the ids of lights so they don't change when another light is
+ * deleted.
  *
  * Version 1.4.1:
  * * Correct a bug where parameters would not be taken in account.
@@ -625,6 +630,40 @@ Spriteset_Map.prototype.updateLighting = function() {
 };
 
 //-----------------------------------------------------------------------------
+// Spriteset_Battle
+//
+//
+if (GameEditor.TOOLS.TintDuringBattle.toLowerCase() === "true") {
+FLZ_Spriteset_Battle_createLowerLayer = Spriteset_Battle.prototype.createLowerLayer;
+Spriteset_Battle.prototype.createLowerLayer = function () {
+    FLZ_Spriteset_Battle_createLowerLayer.call(this);
+    this.createLighting();
+};
+
+FLZ_Spriteset_Battle_update = Spriteset_Battle.prototype.update;
+Spriteset_Battle.prototype.update = function () {
+    FLZ_Spriteset_Battle_update.call(this);
+    this.updateLighting();
+};
+
+Spriteset_Battle.prototype.createLighting = function () {
+    $gameLighting.clear();
+    this._lightingTexture = PIXI.RenderTexture.create(Graphics.width, Graphics.height);
+    this._lightingSurface = new LightingSurface(false);
+    this._lightingSprite = new PIXI.Sprite();
+    this._lightingSprite.texture = this._lightingTexture;
+    this._lightingSprite.blendMode = PIXI.BLEND_MODES.MULTIPLY;
+    this._lightingSprite.alpha = 1.0;
+    this.addChild(this._lightingSprite);
+};
+
+Spriteset_Battle.prototype.updateLighting = function () {
+    this._lightingSurface.update();
+    Graphics._renderer.render(this._lightingSurface, this._lightingTexture, false);
+};
+}
+
+//-----------------------------------------------------------------------------
 // LightingSurface
 //
 //
@@ -636,12 +675,13 @@ function LightingSurface() {
 LightingSurface.prototype = Object.create(PIXI.Container.prototype);
 LightingSurface.prototype.constructor = LightingSurface;
 
-LightingSurface.prototype.initialize = function() {
+LightingSurface.prototype.initialize = function(createLights) {
     PIXI.Container.call(this);
+    this.lightsEnabled = (createLights !== false);
     this._width = Graphics.width; 
     this._height = Graphics.height;
     this._createSurface();
-    this._createLights();
+    if (this.lightsEnabled) this._createLights();
 };
 
 LightingSurface.prototype._createSurface = function() {
@@ -768,7 +808,7 @@ LightingSurface.prototype.update = function() {
         this._surface.bitmap.fillRect(0, 0, this._width, this._height, color);
         this._lastColor = color;
     }
-    this._updateLights();
+    if (this.lightsEnabled) this._updateLights();
     this.children.forEach(function(child) {
         if (child.update) {
             child.update();

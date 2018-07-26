@@ -26,6 +26,10 @@ var $gameTime = null;
  * @desc Number of frames it takes for one second to pass, in frames
  * @default 60
  *
+ * @param Keep Tint During Battle
+ * @desc Whether to keep the current tint in a battle or not (true / false)
+ * @default true
+ *
  * @param ---Clock Settings---
  * @default
  *
@@ -307,6 +311,8 @@ var $gameTime = null;
  *
  * Version 1.5.0:
  * + Add the possibility to use Time SET xx:xx instead of Time SET xx xx
+ * + Add the possibility to keep the tint during battle (can be disabled in
+ * configuration).
  *
  * Version 1.4.1:
  * * Correct bug with "Add" plugin command
@@ -353,6 +359,7 @@ var $gameTime = null;
 GameEditor.Parameters = Object.assign({}, GameEditor.Parameters, PluginManager.parameters('LNM_GameTime'));
 GameEditor.TOOLS.TimeEnabled = String(GameEditor.Parameters['Enabled'] || true);
 GameEditor.TOOLS.DefaultStartTimeStringList = String(GameEditor.Parameters['Default Time'] || '6:00').split(':');
+GameEditor.TOOLS.TintDuringBattle = String(GameEditor.Parameters['Keep Tint During Battle'] || 'true');
 GameEditor.TOOLS.TimeLapse = Number(GameEditor.Parameters['Time Lapse Speed'] || 60);
 GameEditor.TOOLS.TimeTint = [];
 GameEditor.TOOLS.TimeTint[0] = JSON.parse(String(GameEditor.Parameters['00.00'] || '[15, 20, 170]'));
