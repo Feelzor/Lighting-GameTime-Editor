@@ -11,13 +11,13 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * @plugindesc v1.4.1 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
- * @requiredAssets img/editor/Lights.png
- * @requiredAssets img/editor/LightSource.png
- * @requiredAssets img/lights/default.png
- * @requiredAssets img/lights/player_torch_2.png
- * @requiredAssets img/lights/player_torch_4.png
- * @requiredAssets img/lights/player_torch_6.png
- * @requiredAssets img/lights/player_torch_8.png
+ * @requiredAssets img/editor/Lights
+ * @requiredAssets img/editor/LightSource
+ * @requiredAssets img/lights/default
+ * @requiredAssets img/lights/player_torch_2
+ * @requiredAssets img/lights/player_torch_4
+ * @requiredAssets img/lights/player_torch_6
+ * @requiredAssets img/lights/player_torch_8
  *
  * @param Incompatibility fix
  * @desc true if you are experiencing incompatibilities with another plugin. Put this one at the bottom of the list.

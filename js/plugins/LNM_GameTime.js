@@ -11,7 +11,7 @@ var $gameTime = null;
  * cycle. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
- * @requiredAssets img/editor/Time.png
+ * @requiredAssets img/editor/Time
  *
  * @param Enabled
  * @desc Set to false if you want to disable the time.
