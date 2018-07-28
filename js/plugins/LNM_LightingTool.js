@@ -1932,8 +1932,11 @@ Graphics._onKeyDown = function(event) {
                     event.preventDefault();
                     if ($gameEditor.hasClipboard()) {
                         var pastedSource = $gameEditor.getLightFromClipboard();
+                        pastedSource.ox = $gamePlayer.x * $gameMap.tileWidth();
+                        pastedSource.oy = $gamePlayer.y * $gameMap.tileHeight();
                         $gameLighting.add(pastedSource);
                         $gameLighting.save();
+                        $gameEditor.lightingTool.setLight(pastedSource);
                     }
                     break;
             }
