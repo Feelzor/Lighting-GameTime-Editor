@@ -1478,7 +1478,8 @@ Game_Editor.prototype.getLightFromClipboard = function() {
 };
 
 Game_Editor.prototype.hasClipboard = function() {
-    return this._clipboardData !== {};
+    return (Object.keys(this._clipboardData).length !== 0 || this._clipboardData.constructor !== Object)
+        && this._clipboardData != null;
 };
 
 //-----------------------------------------------------------------------------
