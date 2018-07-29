@@ -3,13 +3,21 @@
 //=============================================================================
 
 /*:
- * @plugindesc v1.1.0 The core for plugins that have an in-game editor.
+ * @plugindesc v1.2.0 The core for plugins that have an in-game editor.
  * @author Sebastián Cámara, continued by FeelZoR
+ *
+ * @param History Length
+ * @desc The length of the UNDO history.
+ * Any negative number will remove the limit.
+ * @default 1000
  *
  * @help
  * ============================================================================
  * Changelog
  * ============================================================================
+ *
+ * Version 1.2.0:
+ * + Add an History of changes
  * 
  * Version 1.1.0:
  * -- FeelZoR continues development
@@ -21,6 +29,8 @@
 var GameEditor = GameEditor || {};
 GameEditor.ACTIVE = false;
 GameEditor.TOOLS = {};
+GameEditor.Parameters = Object.assign({}, GameEditor.Parameters, PluginManager.parameters('LNM_GameEditorCore'));
+GameEditor.TOOLS.HistoryLength = Number(GameEditor.Parameters["History Length"] || 1000);
 var $gameEditor = null;
 
 //-----------------------------------------------------------------------------
@@ -405,6 +415,49 @@ ButtonText.prototype.update = function() {
     this.bitmap.clear();
     this.bitmap.fillRect(0, 0, width, height, 0x000000);
     this.bitmap.drawText(text, 0, 0, width, height, 'center');
+};
+
+//-----------------------------------------------------------------------------
+// EditorHistory
+//
+//
+function EditorHistory() {
+    throw Error("This is a static class");
+}
+
+EditorHistory._history = [];
+EditorHistory._redoHistory = [];
+
+EditorHistory.addToHistory = function(action) {
+    this._history.push(action);
+    this._redoHistory = [];
+    while (this._history.length > GameEditor.TOOLS.HistoryLength && GameEditor.TOOLS.HistoryLength > 0) {
+        this._history.shift();
+    }
+};
+
+EditorHistory.undo = function() {
+    if (this._history.length === 0) return null;
+
+    var action = this._history.pop();
+    this._redoHistory.push(action);
+    this.onUndo(action);
+};
+
+EditorHistory.onUndo = function(action) {
+    // Has to be overriden by plugins
+};
+
+EditorHistory.redo = function() {
+    if (this._redoHistory.length === 0) return null;
+
+    var action = this._redoHistory.pop();
+    this._history.push(action);
+    this.onRedo(action);
+};
+
+EditorHistory.onRedo = function(action) {
+    // Has to be overriden by plugins
 };
 
 //-----------------------------------------------------------------------------

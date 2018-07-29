@@ -434,6 +434,8 @@ LightingController.prototype.clear = function() {
  * @param light The type of the light to create.
  * @param x X position.
  * @param y Y position.
+ *
+ * @return {LightSource} The created light
  */
 LightingController.prototype.addByType = function(light, x, y) {
     if (!x) x = $gamePlayer.x * $gameMap.tileWidth();
@@ -441,6 +443,8 @@ LightingController.prototype.addByType = function(light, x, y) {
     var lightSource = new window[light](x, y);
     this.add(lightSource);
     this.save();
+
+    return lightSource;
 };
 
 /**
@@ -916,6 +920,16 @@ LightSource.prototype.setupPulseAnimation = function(pulseMin, pulseMax, pulseSp
     this._pulseAnimationExpand = true;
 };
 
+LightSource.prototype.removePulseAnimation = function() {
+    this.pulseAnimation = false;
+    this.pulseMin = 0;
+    this.pulseMax = 0;
+    this.pulseSpeed = 0;
+    if (this.flickerAnimation === false) {
+        this.mode = 0;
+    }
+};
+
 LightSource.prototype.setupFlickerAnimation = function(flickIntensity, flickSpeed) {
     this.flickIntensity = flickIntensity || 1;
     this.flickSpeed = flickSpeed || 1;
@@ -926,6 +940,15 @@ LightSource.prototype.setupFlickerAnimation = function(flickIntensity, flickSpee
     this._flickMax = 1000;
     this._flickCounter = this.flickMax;
 };
+
+LightSource.prototype.removeFlickerAnimation = function() {
+    $gameEditor.lightingTool.lightSource.flickerAnimation = false;
+    $gameEditor.lightingTool.lightSource.flickIntensity = 0;
+    $gameEditor.lightingTool.lightSource.flickSpeed = 0;
+    if ($gameEditor.lightingTool.lightSource.pulseAnimation === false) {
+        $gameEditor.lightingTool.lightSource.mode = 0;
+    }
+}
 
 LightSource.prototype.refreshPulseAnimation = function() {
     this.scale = new PIXI.Point(this.oscale.x, this.oscale.y);
@@ -951,18 +974,49 @@ LightSource.prototype.modifyFilename = function(filename) {
     }
 };
 
+LightSource.prototype.increaseSize = function(scale) {
+    var newValue = Number(this.oscale.x) + scale;
+    this.modifySize(new PIXI.Point(newValue, newValue));
+};
+
+LightSource.prototype.decreaseSize = function(scale) {
+    var newValue = this.oscale.x - scale;
+    this.modifySize(new PIXI.Point(newValue, newValue));
+};
+
 LightSource.prototype.modifySize = function(scale) {
-    var newScale = scale || new PIXI.Point(1.0, 1.0);
-    this.oscale = new PIXI.Point(newScale.x, newScale.y);
-    this.scale = new PIXI.Point(newScale.x, newScale.y);
+    if (scale == null) scale = new PIXI.Point(1.0, 1.0);
+    if (scale.x == null || isNaN(scale.x)) scale.x = 1.0;
+    if (scale.y == null || isNaN(scale.y)) scale.y = 1.0;
+
+    scale.x = Math.max(Number(scale.x).toFixed(2), 0);
+    scale.y = Math.max(Number(scale.y).toFixed(2), 0);
+
+    this.oscale = new PIXI.Point(scale.x, scale.y);
+    this.scale = new PIXI.Point(scale.x, scale.y);
     if (this.pulseAnimation === true) {
+        var oldMax = this.pulseMax;
         this.pulseMax = this.scale.x;
+        this.pulseMin -= oldMax - this.pulseMax;
+        this.pulseMin = Math.round(this.pulseMin * 100) / 100;
+        if (this.pulseMin < 0) this.pulseMin = 0;
+
+        this.refreshPulseAnimation();
     }
 };
 
+LightSource.prototype.increaseOpacity = function(alpha) {
+    this.modifyOpacity(this.oalpha + alpha);
+};
+
+LightSource.prototype.decreaseOpacity = function(alpha) {
+    this.modifyOpacity(this.oalpha - alpha);
+};
+
 LightSource.prototype.modifyOpacity = function(alpha) {
-    var newAlpha = alpha || 1;
-    this.oalpha = this.alpha = newAlpha;
+    if (alpha == null) alpha = 1;
+    alpha = Math.round(alpha * 100) / 100;
+    this.oalpha = this.alpha = Math.max(Math.min(alpha, 1), 0);
 };
 
 LightSource.prototype.modifyColor = function(hue) {
@@ -971,6 +1025,9 @@ LightSource.prototype.modifyColor = function(hue) {
         if (!this._hasTemporaryHue) {
             this.tint = Number(GameEditor.getColor(hue) || 0xFFFFFF);
         }
+    } else if (hue === null) {
+        this.hue = hue;
+        this.tint = 0xFFFFFF;
     }
 };
 
@@ -984,6 +1041,71 @@ LightSource.prototype.removeTemporaryColor = function() {
     this._hasTemporaryHue = false;
     this.removeTempData("hue");
     this.modifyColor(this.hue);
+};
+
+LightSource.prototype.decreasePulseMin = function(pulse) {
+    this.modifyPulseMin(this.pulseMin - pulse);
+};
+
+LightSource.prototype.increasePulseMin = function(pulse) {
+    this.modifyPulseMin(this.pulseMin + pulse);
+};
+
+LightSource.prototype.modifyPulseMin = function(pulse) {
+    this.pulseMin = Math.max(Math.round(pulse * 100) / 100, 0);
+    this.refreshPulseAnimation();
+};
+
+LightSource.prototype.decreasePulseMax = function(pulse) {
+    this.modifyPulseMax(this.pulseMax - pulse);
+};
+
+LightSource.prototype.increasePulseMax = function(pulse) {
+    this.modifyPulseMax(this.pulseMax + pulse);
+};
+
+LightSource.prototype.modifyPulseMax = function(pulse) {
+    this.pulseMax = Math.max(Math.round(pulse * 100) / 100, 0);
+    this.refreshPulseAnimation();
+};
+
+LightSource.prototype.decreasePulseSpeed = function(pulse) {
+    this.modifyPulseSpeed(this.pulseSpeed - pulse);
+};
+
+LightSource.prototype.increasePulseSpeed = function(pulse) {
+    this.modifyPulseSpeed(this.pulseSpeed + pulse);
+};
+
+LightSource.prototype.modifyPulseSpeed = function(pulse) {
+    this.pulseSpeed = Math.max(Math.round(pulse * 100) / 100, 0);
+    this.refreshPulseAnimation();
+};
+
+LightSource.prototype.decreaseFlickIntensity = function(flick) {
+    this.modifyFlickIntensity(this.flickIntensity - flick);
+};
+
+LightSource.prototype.increaseFlickIntensity = function(flick) {
+    this.modifyFlickIntensity(this.flickIntensity + flick);
+};
+
+LightSource.prototype.modifyFlickIntensity = function(flick) {
+    this.flickIntensity = Math.max(Math.round(flick * 100) / 100, 0);
+    this.refreshFlickerAnimation();
+};
+
+LightSource.prototype.decreaseFlickSpeed = function(flick) {
+    this.modifyFlickSpeed(this.flickSpeed - flick);
+};
+
+LightSource.prototype.increaseFlickSpeed = function(flick) {
+    this.modifyFlickSpeed(this.flickSpeed + flick);
+};
+
+LightSource.prototype.modifyFlickSpeed = function(flick) {
+    this.flickSpeed = Math.max(Math.round(flick * 100) / 100, 0);
+    this.refreshFlickerAnimation();
 };
 
 LightSource.prototype._updatePosition = function() {
@@ -1444,7 +1566,13 @@ Game_Editor.prototype._setupLightingEditor = function() {
         var spacing = 32;
         var y = spacing * i;
         return new ButtonText(20, 20 + y, $lights[i], function() {
-            $gameLighting.addByType($lights[i] + 'Light');
+            var lightSource = $gameLighting.addByType($lights[i] + 'Light');
+
+            EditorHistory.addToHistory({
+                type: "CREATE_LIGHT",
+                source: lightSource,
+                sourceId: $gameLighting.getIdOfLight(lightSource)
+            });
         });
     };
     for (var i = 0; i < $lights.length; i++) {
@@ -1529,143 +1657,230 @@ Lighting_Tool.prototype._createButtons = function() {
     var x = Graphics.width;
     
     this.addChild(new ButtonText(x - 70, 47, ' < ', function() {
+        EditorHistory.addToHistory({
+            type: "DECREASE_X",
+            value: 1,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
         $gameEditor.lightingTool.lightSource.ox -= 1;
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 47, ' > ', function() {
+        EditorHistory.addToHistory({
+            type: "INCREASE_X",
+            value: 1,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
         $gameEditor.lightingTool.lightSource.ox += 1;
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 74, ' < ', function() {
+        EditorHistory.addToHistory({
+            type: "DECREASE_Y",
+            value: 1,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
         $gameEditor.lightingTool.lightSource.oy -= 1;
         $gameLighting.save();
     }));
     this.addChild(new ButtonText(x - 38, 74, ' > ', function() {
+        EditorHistory.addToHistory({
+            type: "INCREASE_Y",
+            value: 1,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
         $gameEditor.lightingTool.lightSource.oy += 1;
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 101, ' < ', function() {
-        var current = $gameEditor.lightingTool.lightSource.oscale.x;
-        var newAttr = parseFloat((current - 0.05).toFixed(2));
-        $gameEditor.lightingTool.lightSource.modifySize(new PIXI.Point(newAttr, newAttr));
-        if ($gameEditor.lightingTool.lightSource.pulseAnimation === true) {
-            $gameEditor.lightingTool.lightSource.refreshPulseAnimation();
-        }
+        var oldValue = Number($gameEditor.lightingTool.lightSource.oscale.x);
+        $gameEditor.lightingTool.lightSource.decreaseSize(0.05);
+        var value = oldValue - Number($gameEditor.lightingTool.lightSource.oscale.x);
+        EditorHistory.addToHistory({
+            type: "DECREASE_SCALE",
+            value: value,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 101, ' > ', function() {
-        var current = $gameEditor.lightingTool.lightSource.oscale.x;
-        var newAttr = parseFloat((current + 0.05).toFixed(2));
-        $gameEditor.lightingTool.lightSource.modifySize(new PIXI.Point(newAttr, newAttr));
-        if ($gameEditor.lightingTool.lightSource.pulseAnimation === true) {
-            $gameEditor.lightingTool.lightSource.refreshPulseAnimation();
-        }
+        EditorHistory.addToHistory({
+            type: "INCREASE_SCALE",
+            value: 0.05,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
+        $gameEditor.lightingTool.lightSource.increaseSize(0.05);
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 129, ' < ', function() {
-        var current = $gameEditor.lightingTool.lightSource.oalpha;
-        var newAttr = parseFloat((current - 0.05).toFixed(2));
-        if (newAttr < 0) newAttr = 0;
-        $gameEditor.lightingTool.lightSource.oalpha = newAttr;
-        $gameEditor.lightingTool.lightSource.alpha = newAttr;
+        var oldValue = $gameEditor.lightingTool.lightSource.oalpha;
+        $gameEditor.lightingTool.lightSource.decreaseOpacity(0.05);
+        var value = oldValue - $gameEditor.lightingTool.lightSource.oalpha;
+        EditorHistory.addToHistory({
+            type: "DECREASE_ALPHA",
+            value: value,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 129, ' > ', function() {
-        var current = $gameEditor.lightingTool.lightSource.oalpha;
-        var newAttr = parseFloat((current + 0.05).toFixed(2));
-        if (newAttr > 1) newAttr = 1;
-        $gameEditor.lightingTool.lightSource.oalpha = newAttr;
-        $gameEditor.lightingTool.lightSource.alpha = newAttr;
+        var oldValue = $gameEditor.lightingTool.lightSource.oalpha;
+        $gameEditor.lightingTool.lightSource.increaseOpacity(0.05);
+        var value = $gameEditor.lightingTool.lightSource.oalpha - oldValue;
+        EditorHistory.addToHistory({type: "INCREASE_ALPHA", value: value, sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)});
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 169, ' < ', function() {
-        $gameEditor.lightingTool.lightSource.pulseAnimation = false;
-        $gameEditor.lightingTool.lightSource.pulseMin = 0;
-        $gameEditor.lightingTool.lightSource.pulseMax = 0;
-        $gameEditor.lightingTool.lightSource.pulseSpeed = 0;
-        if ($gameEditor.lightingTool.lightSource.flickerAnimation === false) {
-            $gameEditor.lightingTool.lightSource.mode = 0;
-        }
+        EditorHistory.addToHistory({
+            type: "PULSE",
+            value: false,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource),
+            properties: {
+                min: $gameEditor.lightingTool.lightSource.pulseMin,
+                max: $gameEditor.lightingTool.lightSource.pulseMax,
+                speed: $gameEditor.lightingTool.lightSource.pulseSpeed
+            }
+        });
+        $gameEditor.lightingTool.lightSource.removePulseAnimation();
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 169, ' > ', function() {
+        EditorHistory.addToHistory({
+            type: "PULSE",
+            value: true,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
         $gameEditor.lightingTool.lightSource.setupPulseAnimation();
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 196, ' < ', function() {
-        var current = $gameEditor.lightingTool.lightSource.pulseMin;
-        $gameEditor.lightingTool.lightSource.pulseMin = parseFloat((current - 0.05).toFixed(2));
-        $gameEditor.lightingTool.lightSource.refreshPulseAnimation();
+        var oldValue = $gameEditor.lightingTool.lightSource.pulseMin;
+        $gameEditor.lightingTool.lightSource.decreasePulseMin(0.05);
+        var value = oldValue - $gameEditor.lightingTool.lightSource.pulseMin;
+        EditorHistory.addToHistory({
+            type: "DECREASE_PULSE_MIN",
+            value: value,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 196, ' > ', function() {
-        var current = $gameEditor.lightingTool.lightSource.pulseMin;
-        $gameEditor.lightingTool.lightSource.pulseMin = parseFloat((current + 0.05).toFixed(2));
-        $gameEditor.lightingTool.lightSource.refreshPulseAnimation();
+        EditorHistory.addToHistory({
+            type: "INCREASE_PULSE_MIN",
+            value: 0.05,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
+        $gameEditor.lightingTool.lightSource.increasePulseMin(0.05);
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 223, ' < ', function() {
-        var current = $gameEditor.lightingTool.lightSource.pulseMax;
-        $gameEditor.lightingTool.lightSource.pulseMax = parseFloat((current - 0.05).toFixed(2));
-        $gameEditor.lightingTool.lightSource.refreshPulseAnimation();
+        var oldValue = $gameEditor.lightingTool.lightSource.pulseMax;
+        $gameEditor.lightingTool.lightSource.decreasePulseMax(0.05);
+        var value = oldValue - $gameEditor.lightingTool.lightSource.pulseMax;
+        EditorHistory.addToHistory({
+            type: "DECREASE_PULSE_MAX",
+            value: value,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 223, ' > ', function() {
-        var current = $gameEditor.lightingTool.lightSource.pulseMax;
-        $gameEditor.lightingTool.lightSource.pulseMax = parseFloat((current + 0.05).toFixed(2));
-        $gameEditor.lightingTool.lightSource.refreshPulseAnimation();
+        EditorHistory.addToHistory({
+            type: "INCREASE_PULSE_MAX",
+            value: 0.05,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
+        $gameEditor.lightingTool.lightSource.increasePulseMax(0.05);
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 250, ' < ', function() {
-        var current = $gameEditor.lightingTool.lightSource.pulseSpeed;
-        $gameEditor.lightingTool.lightSource.pulseSpeed = parseFloat((current - 0.05).toFixed(2));
-        $gameEditor.lightingTool.lightSource.refreshPulseAnimation();
+        var oldValue = $gameEditor.lightingTool.lightSource.pulseSpeed;
+        $gameEditor.lightingTool.lightSource.decreasePulseSpeed(0.05);
+        var value = oldValue - $gameEditor.lightingTool.lightSource.pulseSpeed;
+        EditorHistory.addToHistory({
+            type: "DECREASE_PULSE_SPEED",
+            value: value,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 250, ' > ', function() {
-        var current = $gameEditor.lightingTool.lightSource.pulseSpeed;
-        $gameEditor.lightingTool.lightSource.pulseSpeed = parseFloat((current + 0.05).toFixed(2));
-        $gameEditor.lightingTool.lightSource.refreshPulseAnimation();
+        EditorHistory.addToHistory({
+            type: "INCREASE_PULSE_SPEED",
+            value: 0.05,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
+        $gameEditor.lightingTool.lightSource.increasePulseSpeed(0.05);
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 290, ' < ', function() {
-        $gameEditor.lightingTool.lightSource.flickerAnimation = false;
-        $gameEditor.lightingTool.lightSource.flickIntensity = 0;
-        $gameEditor.lightingTool.lightSource.flickSpeed = 0;
-        if ($gameEditor.lightingTool.lightSource.pulseAnimation === false) {
-            $gameEditor.lightingTool.lightSource.mode = 0;
-        }
+        EditorHistory.addToHistory({
+            type: "FLICKER",
+            value: false,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource),
+            properties: {
+                intensity: $gameEditor.lightingTool.lightSource.flickIntensity,
+                speed: $gameEditor.lightingTool.lightSource.flickSpeed
+            }
+        });
+        $gameEditor.lightingTool.lightSource.removeFlickerAnimation();
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 290, ' > ', function() {
+        EditorHistory.addToHistory({
+            type: "FLICKER",
+            value: true,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
         $gameEditor.lightingTool.lightSource.setupFlickerAnimation();
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 317, ' < ', function() {
-        var current = $gameEditor.lightingTool.lightSource.flickIntensity;
-        $gameEditor.lightingTool.lightSource.flickIntensity = parseFloat((current - 0.05).toFixed(2));
-        $gameEditor.lightingTool.lightSource.refreshFlickerAnimation();
+        var oldValue = $gameEditor.lightingTool.lightSource.flickIntensity;
+        $gameEditor.lightingTool.lightSource.decreaseFlickIntensity(0.05);
+        var value = oldValue - $gameEditor.lightingTool.lightSource.flickIntensity;
+        EditorHistory.addToHistory({
+            type: "DECREASE_FLICK_INTENSITY",
+            value: value,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 317, ' > ', function() {
-        var current = $gameEditor.lightingTool.lightSource.flickIntensity;
-        $gameEditor.lightingTool.lightSource.flickIntensity = parseFloat((current + 0.05).toFixed(2));
-        $gameEditor.lightingTool.lightSource.refreshFlickerAnimation();
+        EditorHistory.addToHistory({
+            type: "INCREASE_FLICK_INTENSITY",
+            value: 0.05,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
+        $gameEditor.lightingTool.lightSource.increaseFlickIntensity(0.05);
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 344, ' < ', function() {
-        var current = $gameEditor.lightingTool.lightSource.flickSpeed;
-        $gameEditor.lightingTool.lightSource.flickSpeed = parseFloat((current - 0.05).toFixed(2));
-        $gameEditor.lightingTool.lightSource.refreshFlickerAnimation();
+        var oldValue = $gameEditor.lightingTool.lightSource.flickSpeed;
+        $gameEditor.lightingTool.lightSource.decreaseFlickSpeed(0.05);
+        var value = oldValue - $gameEditor.lightingTool.lightSource.flickSpeed;
+        EditorHistory.addToHistory({
+            type: "DECREASE_FLICK_SPEED",
+            value: value,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 344, ' > ', function() {
-        var current = $gameEditor.lightingTool.lightSource.flickSpeed;
-        $gameEditor.lightingTool.lightSource.flickSpeed = parseFloat((current + 0.05).toFixed(2));
-        $gameEditor.lightingTool.lightSource.refreshFlickerAnimation();
+        EditorHistory.addToHistory({
+            type: "INCREASE_FLICK_SPEED",
+            value: 0.05,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
+        $gameEditor.lightingTool.lightSource.increaseFlickSpeed(0.05);
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 48, 385, 'null', function() {
+        EditorHistory.addToHistory({
+            type: "CHANGE_HUE",
+            value: $gameEditor.lightingTool.lightSource.hue,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
         $gameEditor.lightingTool.lightSource.hue = null;
         $gameEditor.lightingTool.lightSource.tint = 0xFFFFFF;
         $gameLighting.save();
@@ -1682,6 +1897,19 @@ Lighting_Tool.prototype._createButtons = function() {
     this.sliderHue.drag = function() {
         if ($gameEditor.lightingTool.isDragging()) return;
         FLZ_ButtonSlider_Drag_Prototype.call(this);
+    };
+
+    var FLZ_SliderHue_updateMouseBehaviour = this.sliderHue._updateMouseBehavior;
+    this.sliderHue._updateMouseBehavior = function() {
+        var dragging = this._dragging;
+        FLZ_SliderHue_updateMouseBehaviour.call(this);
+        if (!dragging && this._dragging) {
+            EditorHistory.addToHistory({
+                type: "CHANGE_HUE",
+                value: $gameEditor.lightingTool.lightSource.hue,
+                sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+            });
+        }
     };
     
     
@@ -1730,6 +1958,11 @@ Lighting_Tool.prototype.setLight = function(lightSource) {
 
 Lighting_Tool.prototype.deleteLight = function() {
     if (!this.lightSource) return;
+    EditorHistory.addToHistory({
+        type: "DELETE_LIGHT",
+        source: this.lightSource,
+        sourceId: $gameLighting.getIdOfLight(this.lightSource)
+    });
     $gameLighting.remove(this.lightSource);
     this.hide();
 };
@@ -1865,6 +2098,15 @@ LightSourceIcon.prototype._updateMouseBehavior = function() {
     if (TouchInput.isPressed()) {
         this._holdFrameCount--;
         if (this._holdFrameCount <= 0 && this.isTriggered()) {
+            if (!this._dragging) {
+                EditorHistory.addToHistory({
+                    type: "MOVE",
+                    x: this.lightSource.ox,
+                    y: this.lightSource.oy,
+                    sourceId: $gameLighting.getIdOfLight(this.lightSource)
+                });
+            }
+
             this._dragging = true;
             $gameEditor.lightingTool._dragging = true;
             this._holdFrameCount = this._holdTime;
@@ -1913,6 +2155,185 @@ LightSourceIcon.prototype._updatePosition = function() {
     this.y = this.lightSource.y;
 };
 
+var FLZ_LightingTool_EditorHistory_onUndo = EditorHistory.onUndo;
+EditorHistory.onUndo = function(action) {
+    var source = $gameLighting.getLightById(action.sourceId);
+    switch (action.type) {
+        case "MOVE":
+            action.newX = source.ox;
+            action.newY = source.oy;
+            source.ox = action.x;
+            source.oy = action.y;
+            break;
+        case "DECREASE_X":
+            source.ox += action.value;
+            break;
+        case "INCREASE_X":
+            source.ox -= action.value;
+            break;
+        case "DECREASE_Y":
+            source.oy += action.value;
+            break;
+        case "INCREASE_Y":
+            source.oy -= action.value;
+            break;
+        case "DECREASE_SCALE":
+            source.increaseSize(action.value);
+            break;
+        case "INCREASE_SCALE":
+            source.decreaseSize(action.value);
+            break;
+        case "DECREASE_ALPHA":
+            source.increaseOpacity(action.value);
+            break;
+        case "INCREASE_ALPHA":
+            source.decreaseOpacity(action.value);
+            break;
+        case "PULSE":
+            if (action.value) source.removePulseAnimation();
+            else source.setupPulseAnimation(action.properties.min, action.properties.max, action.properties.speed);
+            break;
+        case "DECREASE_PULSE_MIN":
+            source.increasePulseMin(action.value);
+            break;
+        case "INCREASE_PULSE_MIN":
+            source.decreasePulseMin(action.value);
+            break;
+        case "DECREASE_PULSE_MAX":
+            source.increasePulseMax(action.value);
+            break;
+        case "INCREASE_PULSE_MAX":
+            source.decreasePulseMax(action.value);
+            break;
+        case "DECREASE_PULSE_SPEED":
+            source.increasePulseSpeed(action.value);
+            break;
+        case "INCREASE_PULSE_SPEED":
+            source.decreasePulseSpeed(action.value);
+            break;
+        case "FLICKER":
+            if (action.value) source.removeFlickerAnimation();
+            else source.setupFlickerAnimation(action.properties.intensity, action.properties.speed);
+            break;
+        case "DECREASE_FLICK_INTENSITY":
+            source.increaseFlickIntensity(action.value);
+            break;
+        case "INCREASE_FLICK_INTENSITY":
+            source.decreaseFlickIntensity(action.value);
+            break;
+        case "DECREASE_FLICK_SPEED":
+            source.increaseFlickSpeed(action.value);
+            break;
+        case "INCREASE_FLICK_SPEED":
+            source.decreaseFlickSpeed(action.value);
+            break;
+        case "CHANGE_HUE":
+            action.newHue = source.hue;
+            source.modifyColor(action.value);
+            break;
+        case "DELETE_LIGHT":
+            $gameLighting.add(action.source, action.sourceId);
+            break;
+        case "CREATE_LIGHT":
+            $gameLighting.remove(source);
+            if (action.value === $gameEditor.lightingTool.lightSource) $gameEditor.lightingTool.hide();
+            $gameLighting.list.nextId--;
+            break;
+        default:
+            FLZ_LightingTool_EditorHistory_onUndo.call(this, action);
+            return;
+    }
+    $gameLighting.save();
+};
+
+
+var FLZ_LightingTool_EditorHistory_onRedo = EditorHistory.onRedo;
+EditorHistory.onRedo = function(action) {
+    var source = $gameLighting.getLightById(action.sourceId);
+    switch (action.type) {
+        case "MOVE":
+            source.ox = action.newX;
+            source.oy = action.newY;
+            break;
+        case "DECREASE_X":
+            source.ox -= action.value;
+            break;
+        case "INCREASE_X":
+            source.ox += action.value;
+            break;
+        case "DECREASE_Y":
+            source.oy -= action.value;
+            break;
+        case "INCREASE_Y":
+            source.oy += action.value;
+            break;
+        case "DECREASE_SCALE":
+            source.decreaseSize(action.value);
+            break;
+        case "INCREASE_SCALE":
+            source.increaseSize(action.value);
+            break;
+        case "DECREASE_ALPHA":
+            source.decreaseOpacity(action.value);
+            break;
+        case "INCREASE_ALPHA":
+            source.increaseOpacity(action.value);
+            break;
+        case "PULSE":
+            if (action.value) source.setupPulseAnimation();
+            else source.removePulseAnimation();
+            break;
+        case "DECREASE_PULSE_MIN":
+            source.decreasePulseMin(action.value);
+            break;
+        case "INCREASE_PULSE_MIN":
+            source.increasePulseMin(action.value);
+            break;
+        case "DECREASE_PULSE_MAX":
+            source.decreasePulseMax(action.value);
+            break;
+        case "INCREASE_PULSE_MAX":
+            source.increasePulseMax(action.value);
+            break;
+        case "DECREASE_PULSE_SPEED":
+            source.decreasePulseSpeed(action.value);
+            break;
+        case "INCREASE_PULSE_SPEED":
+            source.increasePulseSpeed(action.value);
+            break;
+        case "FLICKER":
+            if (action.value) source.setupFlickerAnimation();
+            else source.removeFlickerAnimation();
+            break;
+        case "DECREASE_FLICK_INTENSITY":
+            source.decreaseFlickIntensity(action.value);
+            break;
+        case "INCREASE_FLICK_INTENSITY":
+            source.increaseFlickIntensity(action.value);
+            break;
+        case "DECREASE_FLICK_SPEED":
+            source.decreaseFlickSpeed(action.value);
+            break;
+        case "INCREASE_FLICK_SPEED":
+            source.increaseFlickSpeed(action.value);
+            break;
+        case "CHANGE_HUE":
+            source.modifyColor(action.newHue);
+            break;
+        case "DELETE_LIGHT":
+            $gameLighting.remove(source);
+            break;
+        case "CREATE_LIGHT":
+            $gameLighting.add(action.source);
+            $gameEditor.lightingTool.setLight(action.source);
+            break;
+        default:
+            FLZ_LightingTool_EditorHistory_onRedo.call(this, action);
+            return;
+    }
+    $gameLighting.save();
+};
+
 //-----------------------------------------------------------------------------
 // Graphics._onKeyDown
 //
@@ -1938,7 +2359,19 @@ Graphics._onKeyDown = function(event) {
                         $gameLighting.add(pastedSource);
                         $gameLighting.save();
                         $gameEditor.lightingTool.setLight(pastedSource);
+
+                        EditorHistory.addToHistory({
+                            type: "CREATE_LIGHT",
+                            source: pastedSource,
+                            sourceId: $gameLighting.getIdOfLight(pastedSource)
+                        });
                     }
+                    break;
+                case 89: // Y
+                    EditorHistory.redo();
+                    break;
+                case 90: // Z
+                    EditorHistory.undo();
                     break;
             }
         }
