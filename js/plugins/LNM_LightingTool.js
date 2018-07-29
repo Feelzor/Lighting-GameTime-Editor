@@ -8,7 +8,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 //=============================================================================
 /*:
- * @plugindesc v1.5.0 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
+ * @plugindesc v1.6.0 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @requiredAssets img/editor/Lights
@@ -286,9 +286,24 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * Changelog
  * ============================================================================
  *
+ * Version 1.6.0:
+ * + Add the possibility to undo (CTRL + Z) and redo (CTRL + Y) actions in
+ * editor.
+ * + Automatically selects the light when created.
+ * + Automatically selects the pasted light for edition.
+ * + Allow number entering when clicking on values while editing light
+ * properties.
+ * + Pulse and Flicker enable setting now loops between true and false, instead
+ * of resetting the properties.
+ * + Support ⌘ in addition to control for Mac users.
+ * * Paste lights next to the player, instead of the position of the copied
+ * light.
+ * * Correct a bug where pasting without copying anything crashes.
+ * * Light dragging no longer start if the mouse didn't move
+ *
  * Version 1.5.0:
- * * Corrected a bug where required assets weren't taken in account.
- * * Changed the ids of lights so they don't change when another light is
+ * * Correct a bug where required assets weren't taken in account.
+ * * Chang the ids of lights so they don't change when another light is
  * deleted.
  *
  * Version 1.4.1:
@@ -1567,6 +1582,7 @@ Game_Editor.prototype._setupLightingEditor = function() {
         var y = spacing * i;
         return new ButtonText(20, 20 + y, $lights[i], function() {
             var lightSource = $gameLighting.addByType($lights[i] + 'Light');
+            $gameEditor.lightingTool.setLight(lightSource);
 
             EditorHistory.addToHistory({
                 type: "CREATE_LIGHT",
@@ -1642,6 +1658,7 @@ Lighting_Tool.prototype.initialize = function() {
     this.lightSource = null;
     this.lightSourceId = 0;
     this._dragging = false;
+    this.frozen = false;
     this._createButtons();
     this._createLabels();
     this.hide();
@@ -1655,40 +1672,25 @@ ButtonText.prototype.onClick = function() {
 
 Lighting_Tool.prototype._createButtons = function() {
     var x = Graphics.width;
+    var _this = this;
     
     this.addChild(new ButtonText(x - 70, 47, ' < ', function() {
-        EditorHistory.addToHistory({
-            type: "DECREASE_X",
-            value: 1,
-            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
-        });
+        EditorHistory.addMove($gameEditor.lightingTool.lightSource);
         $gameEditor.lightingTool.lightSource.ox -= 1;
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 47, ' > ', function() {
-        EditorHistory.addToHistory({
-            type: "INCREASE_X",
-            value: 1,
-            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
-        });
+        EditorHistory.addMove($gameEditor.lightingTool.lightSource);
         $gameEditor.lightingTool.lightSource.ox += 1;
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 74, ' < ', function() {
-        EditorHistory.addToHistory({
-            type: "DECREASE_Y",
-            value: 1,
-            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
-        });
+        EditorHistory.addMove($gameEditor.lightingTool.lightSource);
         $gameEditor.lightingTool.lightSource.oy -= 1;
         $gameLighting.save();
     }));
     this.addChild(new ButtonText(x - 38, 74, ' > ', function() {
-        EditorHistory.addToHistory({
-            type: "INCREASE_Y",
-            value: 1,
-            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
-        });
+        EditorHistory.addMove($gameEditor.lightingTool.lightSource);
         $gameEditor.lightingTool.lightSource.oy += 1;
         $gameLighting.save();
     }, true));
@@ -1704,11 +1706,7 @@ Lighting_Tool.prototype._createButtons = function() {
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 101, ' > ', function() {
-        EditorHistory.addToHistory({
-            type: "INCREASE_SCALE",
-            value: 0.05,
-            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
-        });
+        EditorHistory.addScaleIncrease($gameEditor.lightingTool.lightSource, 0.05);
         $gameEditor.lightingTool.lightSource.increaseSize(0.05);
         $gameLighting.save();
     }, true));
@@ -1727,30 +1725,15 @@ Lighting_Tool.prototype._createButtons = function() {
         var oldValue = $gameEditor.lightingTool.lightSource.oalpha;
         $gameEditor.lightingTool.lightSource.increaseOpacity(0.05);
         var value = $gameEditor.lightingTool.lightSource.oalpha - oldValue;
-        EditorHistory.addToHistory({type: "INCREASE_ALPHA", value: value, sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)});
+        EditorHistory.addAlphaIncrease($gameEditor.lightingTool.lightSource, value);
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 169, ' < ', function() {
-        EditorHistory.addToHistory({
-            type: "PULSE",
-            value: false,
-            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource),
-            properties: {
-                min: $gameEditor.lightingTool.lightSource.pulseMin,
-                max: $gameEditor.lightingTool.lightSource.pulseMax,
-                speed: $gameEditor.lightingTool.lightSource.pulseSpeed
-            }
-        });
-        $gameEditor.lightingTool.lightSource.removePulseAnimation();
+        _this._switchPulseAnimation();
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 169, ' > ', function() {
-        EditorHistory.addToHistory({
-            type: "PULSE",
-            value: true,
-            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
-        });
-        $gameEditor.lightingTool.lightSource.setupPulseAnimation();
+        _this._switchPulseAnimation();
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 196, ' < ', function() {
@@ -1765,11 +1748,7 @@ Lighting_Tool.prototype._createButtons = function() {
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 196, ' > ', function() {
-        EditorHistory.addToHistory({
-            type: "INCREASE_PULSE_MIN",
-            value: 0.05,
-            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
-        });
+        EditorHistory.addPulseMinIncrease($gameEditor.lightingTool.lightSource, 0.05);
         $gameEditor.lightingTool.lightSource.increasePulseMin(0.05);
         $gameLighting.save();
     }, true));
@@ -1785,11 +1764,7 @@ Lighting_Tool.prototype._createButtons = function() {
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 223, ' > ', function() {
-        EditorHistory.addToHistory({
-            type: "INCREASE_PULSE_MAX",
-            value: 0.05,
-            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
-        });
+        EditorHistory.addPulseMaxIncrease($gameEditor.lightingTool.lightSource, 0.05);
         $gameEditor.lightingTool.lightSource.increasePulseMax(0.05);
         $gameLighting.save();
     }, true));
@@ -1805,34 +1780,16 @@ Lighting_Tool.prototype._createButtons = function() {
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 250, ' > ', function() {
-        EditorHistory.addToHistory({
-            type: "INCREASE_PULSE_SPEED",
-            value: 0.05,
-            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
-        });
+        EditorHistory.addPulseSpeedIncrease($gameEditor.lightingTool.lightSource, 0.05);
         $gameEditor.lightingTool.lightSource.increasePulseSpeed(0.05);
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 290, ' < ', function() {
-        EditorHistory.addToHistory({
-            type: "FLICKER",
-            value: false,
-            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource),
-            properties: {
-                intensity: $gameEditor.lightingTool.lightSource.flickIntensity,
-                speed: $gameEditor.lightingTool.lightSource.flickSpeed
-            }
-        });
-        $gameEditor.lightingTool.lightSource.removeFlickerAnimation();
+        _this._switchFlickerAnimation();
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 290, ' > ', function() {
-        EditorHistory.addToHistory({
-            type: "FLICKER",
-            value: true,
-            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
-        });
-        $gameEditor.lightingTool.lightSource.setupFlickerAnimation();
+        _this._switchFlickerAnimation();
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 317, ' < ', function() {
@@ -1847,11 +1804,7 @@ Lighting_Tool.prototype._createButtons = function() {
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 317, ' > ', function() {
-        EditorHistory.addToHistory({
-            type: "INCREASE_FLICK_INTENSITY",
-            value: 0.05,
-            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
-        });
+        EditorHistory.addFlickIntensityIncrease($gameEditor.lightingTool.lightSource, 0.05);
         $gameEditor.lightingTool.lightSource.increaseFlickIntensity(0.05);
         $gameLighting.save();
     }, true));
@@ -1867,20 +1820,12 @@ Lighting_Tool.prototype._createButtons = function() {
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 344, ' > ', function() {
-        EditorHistory.addToHistory({
-            type: "INCREASE_FLICK_SPEED",
-            value: 0.05,
-            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
-        });
+        EditorHistory.addFlickSpeedIncrease($gameEditor.lightingTool.lightSource, 0.05);
         $gameEditor.lightingTool.lightSource.increaseFlickSpeed(0.05);
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 48, 385, 'null', function() {
-        EditorHistory.addToHistory({
-            type: "CHANGE_HUE",
-            value: $gameEditor.lightingTool.lightSource.hue,
-            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
-        });
+        EditorHistory.addHueChange($gameEditor.lightingTool.lightSource);
         $gameEditor.lightingTool.lightSource.hue = null;
         $gameEditor.lightingTool.lightSource.tint = 0xFFFFFF;
         $gameLighting.save();
@@ -1904,14 +1849,9 @@ Lighting_Tool.prototype._createButtons = function() {
         var dragging = this._dragging;
         FLZ_SliderHue_updateMouseBehaviour.call(this);
         if (!dragging && this._dragging) {
-            EditorHistory.addToHistory({
-                type: "CHANGE_HUE",
-                value: $gameEditor.lightingTool.lightSource.hue,
-                sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
-            });
+            EditorHistory.addHueChange($gameEditor.lightingTool.lightSource);
         }
     };
-    
     
     this.addChild(this.sliderHue);
     this.addChild(new ButtonText(x - 68, 480, 'Delete', function() {
@@ -1920,33 +1860,172 @@ Lighting_Tool.prototype._createButtons = function() {
     }));
 };
 
+Lighting_Tool.prototype._switchPulseAnimation = function() {
+    if ($gameEditor.lightingTool.lightSource.pulseAnimation) {
+        EditorHistory.addToHistory({
+            type: "PULSE",
+            value: false,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource),
+            properties: {
+                min: $gameEditor.lightingTool.lightSource.pulseMin,
+                max: $gameEditor.lightingTool.lightSource.pulseMax,
+                speed: $gameEditor.lightingTool.lightSource.pulseSpeed
+            }
+        });
+        $gameEditor.lightingTool.lightSource.removePulseAnimation();
+    } else {
+        EditorHistory.addToHistory({
+            type: "PULSE",
+            value: true,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
+        $gameEditor.lightingTool.lightSource.setupPulseAnimation();
+    }
+};
+
+Lighting_Tool.prototype._switchFlickerAnimation = function() {
+    if ($gameEditor.lightingTool.lightSource.flickerAnimation) {
+        EditorHistory.addToHistory({
+            type: "FLICKER",
+            value: false,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource),
+            properties: {
+                intensity: $gameEditor.lightingTool.lightSource.flickIntensity,
+                speed: $gameEditor.lightingTool.lightSource.flickSpeed
+            }
+        });
+        $gameEditor.lightingTool.lightSource.removeFlickerAnimation();
+    } else {
+        EditorHistory.addToHistory({
+            type: "FLICKER",
+            value: true,
+            sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+        });
+        $gameEditor.lightingTool.lightSource.setupFlickerAnimation();
+    }
+};
+
+Lighting_Tool.prototype.openNumberInput = function(text, number, callback) {
+    if (this.isFrozen()) return;
+
+    var input = new NumberInput(text, Graphics.width / 3, Graphics.height / 3, number, callback);
+    this.addChild(input);
+    this.frozen = true;
+};
+
 Lighting_Tool.prototype._createLabels = function() {
     var x = Graphics.width - 90;
+    var _this = this;
     this.labelTitle = new Label(x, 25, 'LightSourceID 1', 'right', 16, true);
     this.addChild(this.labelTitle);
-    this.labelX = new Label(x, 65, 'X: 0', 'right');
+
+    this.labelX = new Label(x, 65, 'X: 0', 'right', null, null, function() {
+        _this.openNumberInput("X Coordinate", _this.lightSource.ox, function(number) {
+            EditorHistory.addMove(_this.lightSource);
+            _this.lightSource.ox = number;
+            $gameLighting.save();
+        });
+    });
     this.addChild(this.labelX);
-    this.labelY = new Label(x, 90, 'Y: 0', 'right');
+
+    this.labelY = new Label(x, 90, 'Y: 0', 'right', null, null, function() {
+        _this.openNumberInput("Y Coordinate", _this.lightSource.oy, function(number) {
+            EditorHistory.addMove(_this.lightSource);
+            _this.lightSource.oy = number;
+            $gameLighting.save();
+        });
+    });
     this.addChild(this.labelY);
-    this.labelSize = new Label(x, 115, 'Size: 1.0', 'right');
+
+    this.labelSize = new Label(x, 115, 'Size: 1.0', 'right', null, null, function() {
+        _this.openNumberInput("Scale", _this.lightSource.oscale.x, function(number) {
+            var oldValue = Number(_this.lightSource.oscale.x);
+            _this.lightSource.modifySize(new PIXI.Point(number, number));
+            EditorHistory.addScaleIncrease(_this.lightSource, Number(_this.lightSource.oscale.x) - oldValue);
+            $gameLighting.save();
+        });
+    });
     this.addChild(this.labelSize);
-    this.labelAlpha = new Label(x, 140, 'Alpha: 1.0', 'right');
+
+    this.labelAlpha = new Label(x, 140, 'Alpha: 1.0', 'right', null, null, function() {
+        _this.openNumberInput("Opacity", _this.lightSource.oalpha, function(number) {
+            var oldValue = _this.lightSource.oalpha;
+            _this.lightSource.modifyOpacity(number);
+            EditorHistory.addAlphaIncrease(_this.lightSource, _this.lightSource.oalpha - oldValue);
+            $gameLighting.save();
+        });
+    });
     this.addChild(this.labelAlpha);
+
     this.labelPulse = new Label(x, 185, 'Pulse: false', 'right');
     this.addChild(this.labelPulse);
-    this.labelPulseMin = new Label(x, 210, 'pulseMin: 0', 'right');
+
+    this.labelPulseMin = new Label(x, 210, 'pulseMin: 0', 'right', null, null, function() {
+        if (!_this.lightSource.pulseAnimation) return;
+        _this.openNumberInput("Pulse Min", _this.lightSource.pulseMin, function(number) {
+            var oldValue = _this.lightSource.pulseMin;
+            _this.lightSource.modifyPulseMin(number);
+            EditorHistory.addPulseMinIncrease(_this.lightSource, _this.lightSource.pulseMin - oldValue);
+            $gameLighting.save();
+        });
+    });
     this.addChild(this.labelPulseMin);
-    this.labelPulseMax = new Label(x, 235, 'pulseMax: 0', 'right');
+
+    this.labelPulseMax = new Label(x, 235, 'pulseMax: 0', 'right', null, null, function() {
+        if (!_this.lightSource.pulseAnimation) return;
+        _this.openNumberInput("Pulse Max", _this.lightSource.pulseMax, function(number) {
+            var oldValue = _this.lightSource.pulseMax;
+            _this.lightSource.modifyPulseMax(number);
+            EditorHistory.addPulseMaxIncrease(_this.lightSource, _this.lightSource.pulseMax - oldValue);
+            $gameLighting.save();
+        });
+    });
     this.addChild(this.labelPulseMax);
-    this.labelPulseSpeed = new Label(x, 260, 'pulseSpeed: 0', 'right');
+
+    this.labelPulseSpeed = new Label(x, 260, 'pulseSpeed: 0', 'right', null, null, function() {
+        if (!_this.lightSource.pulseAnimation) return;
+        _this.openNumberInput("Pulse Speed", _this.lightSource.pulseSpeed, function(number) {
+            var oldValue = _this.lightSource.pulseSpeed;
+            _this.lightSource.modifyPulseSpeed(number);
+            EditorHistory.addPulseSpeedIncrease(_this.lightSource, _this.lightSource.pulseSpeed - oldValue);
+            $gameLighting.save();
+        });
+    });
     this.addChild(this.labelPulseSpeed);
+
     this.labelFlick = new Label(x, 305, 'Flick: false', 'right');
     this.addChild(this.labelFlick);
-    this.labelFlickIntenisty = new Label(x, 330, 'flickIntensity: 0', 'right');
-    this.addChild(this.labelFlickIntenisty);
-    this.labelFlickSpeed = new Label(x, 355, 'flickSpeed: 0', 'right');
+
+    this.labelFlickIntensity = new Label(x, 330, 'flickIntensity: 0', 'right', null, null, function() {
+        if (!_this.lightSource.flickerAnimation) return;
+        _this.openNumberInput("Flick Intensity", _this.lightSource.flickIntensity, function(number) {
+            var oldValue = _this.lightSource.flickIntensity;
+            _this.lightSource.modifyFlickIntensity(number);
+            EditorHistory.addFlickIntensityIncrease(_this.lightSource, _this.lightSource.flickIntensity - oldValue);
+            $gameLighting.save();
+        });
+    });
+    this.addChild(this.labelFlickIntensity);
+
+    this.labelFlickSpeed = new Label(x, 355, 'flickSpeed: 0', 'right', null, null, function() {
+        if (!_this.lightSource.flickerAnimation) return;
+        _this.openNumberInput("Flick Speed", _this.lightSource.flickSpeed, function(number) {
+            var oldValue = _this.lightSource.flickSpeed;
+            _this.lightSource.modifyFlickSpeed(number);
+            EditorHistory.addFlickSpeedIncrease(_this.lightSource, _this.lightSource.flickSpeed - oldValue);
+            $gameLighting.save();
+        });
+    });
     this.addChild(this.labelFlickSpeed);
-    this.labelHue = new Label(x, 400, 'HUE: null', 'right');
+
+    this.labelHue = new Label(x, 400, 'HUE: null', 'right', null, null, function() {
+        if (!_this.lightSource.flickerAnimation) return;
+        _this.openNumberInput("Hue", _this.lightSource.hue, function(number) {
+            EditorHistory.addHueChange(_this.lightSource);
+            _this.lightSource.modifyColor(number);
+            $gameLighting.save();
+        });
+    });
     this.addChild(this.labelHue);
 };
 
@@ -1968,7 +2047,6 @@ Lighting_Tool.prototype.deleteLight = function() {
 };
 
 Lighting_Tool.prototype.updateData = function() {
-    if (!this.lightSource) return;
     this.labelTitle.setText('LightSourceID: ' + this.lightSourceId);
     this.labelX.setText('X: ' + this.lightSource.ox);
     this.labelY.setText('Y: ' + this.lightSource.oy);
@@ -1979,13 +2057,15 @@ Lighting_Tool.prototype.updateData = function() {
     this.labelPulseMax.setText('pulseMax: ' + this.lightSource.pulseMax);
     this.labelPulseSpeed.setText('pulseSpeed: ' + this.lightSource.pulseSpeed);
     this.labelFlick.setText('Flick: ' + this.lightSource.flickerAnimation);
-    this.labelFlickIntenisty.setText('flickIntensity: ' + this.lightSource.flickIntensity);
+    this.labelFlickIntensity.setText('flickIntensity: ' + this.lightSource.flickIntensity);
     this.labelFlickSpeed.setText('flickSpeed: ' + this.lightSource.flickSpeed);
     this.labelHue.setText('HUE: ' + this.lightSource.hue);
     if (this.lightSource.hue != null) this.sliderHue.setValue(this.lightSource.hue);
 };
 
 Lighting_Tool.prototype.update = function() {
+    if (!this.lightSource || !this.visible) return;
+
     this.updateData();
     this.children.forEach(function(child) {
         if (child.update) {
@@ -1996,6 +2076,10 @@ Lighting_Tool.prototype.update = function() {
 
 Lighting_Tool.prototype.isDragging = function() {
     return this._dragging;
+};
+
+Lighting_Tool.prototype.isFrozen = function() {
+    return this.frozen;
 };
 
 Lighting_Tool.prototype.hide = function() {
@@ -2093,23 +2177,23 @@ LightSourceIcon.prototype._updateMouseBehavior = function() {
     if (TouchInput.isTriggered()) {
         if (this.isTriggered()) {
             $gameEditor.lightingTool.setLight(this.lightSource);
+
+            if (this._initialPosition == null && this._dragging === false) {
+                this._initialPosition = [TouchInput.x, TouchInput.y];
+            }
         }
     }
     if (TouchInput.isPressed()) {
         this._holdFrameCount--;
-        if (this._holdFrameCount <= 0 && this.isTriggered()) {
+        if (this._holdFrameCount <= 0 && this.isTriggered() && this.hasMouseMoved()) {
             if (!this._dragging) {
-                EditorHistory.addToHistory({
-                    type: "MOVE",
-                    x: this.lightSource.ox,
-                    y: this.lightSource.oy,
-                    sourceId: $gameLighting.getIdOfLight(this.lightSource)
-                });
+                EditorHistory.addMove(this.lightSource);
             }
 
             this._dragging = true;
             $gameEditor.lightingTool._dragging = true;
             this._holdFrameCount = this._holdTime;
+            this._initialPosition = null;
         }
     }
     if (TouchInput.isReleased()) {
@@ -2123,6 +2207,11 @@ LightSourceIcon.prototype._updateMouseBehavior = function() {
     if (this._dragging === true) {
         this.drag();
     }
+};
+
+LightSourceIcon.prototype.hasMouseMoved = function() {
+    return this._initialPosition == null || TouchInput.x !== this._initialPosition[0]
+        || TouchInput.y !== this._initialPosition[1];
 };
 
 LightSourceIcon.prototype.drag = function() {
@@ -2164,18 +2253,6 @@ EditorHistory.onUndo = function(action) {
             action.newY = source.oy;
             source.ox = action.x;
             source.oy = action.y;
-            break;
-        case "DECREASE_X":
-            source.ox += action.value;
-            break;
-        case "INCREASE_X":
-            source.ox -= action.value;
-            break;
-        case "DECREASE_Y":
-            source.oy += action.value;
-            break;
-        case "INCREASE_Y":
-            source.oy -= action.value;
             break;
         case "DECREASE_SCALE":
             source.increaseSize(action.value);
@@ -2255,18 +2332,6 @@ EditorHistory.onRedo = function(action) {
             source.ox = action.newX;
             source.oy = action.newY;
             break;
-        case "DECREASE_X":
-            source.ox -= action.value;
-            break;
-        case "INCREASE_X":
-            source.ox += action.value;
-            break;
-        case "DECREASE_Y":
-            source.oy -= action.value;
-            break;
-        case "INCREASE_Y":
-            source.oy += action.value;
-            break;
         case "DECREASE_SCALE":
             source.decreaseSize(action.value);
             break;
@@ -2339,53 +2404,56 @@ EditorHistory.onRedo = function(action) {
 //
 // Add useful shortcuts to the editor.
 
-Graphics._copyPaste_onKeyDown = Graphics._onKeyDown;
+var FLZ_LightingTool_Graphics_copyPaste_onKeyDown = Graphics._onKeyDown;
 Graphics._onKeyDown = function(event) {
-    if (event.ctrlKey || event.metaKey) {
-        if (GameEditor.ACTIVE && SceneManager._scene instanceof Scene_Map) {
-            switch (event.keyCode) {
-                case 67: // C
-                    event.preventDefault();
-                    if ($gameEditor.lightingTool.lightSource) {
-                        $gameEditor.addLightToClipboard($gameEditor.lightingTool.lightSource.getData());
-                    }
-                    break;
-                case 86: // V
-                    event.preventDefault();
-                    if ($gameEditor.hasClipboard()) {
-                        var pastedSource = $gameEditor.getLightFromClipboard();
-                        pastedSource.ox = $gamePlayer.x * $gameMap.tileWidth();
-                        pastedSource.oy = $gamePlayer.y * $gameMap.tileHeight();
-                        $gameLighting.add(pastedSource);
-                        $gameLighting.save();
-                        $gameEditor.lightingTool.setLight(pastedSource);
+    if ($gameEditor == null || !$gameEditor.lightingTool.isFrozen()) {
+        if (event.ctrlKey || event.metaKey) {
+            if (GameEditor.ACTIVE && SceneManager._scene instanceof Scene_Map) {
+                switch (event.keyCode) {
+                    case 67: // C
+                        event.preventDefault();
+                        if ($gameEditor.lightingTool.lightSource) {
+                            $gameEditor.addLightToClipboard($gameEditor.lightingTool.lightSource.getData());
+                        }
+                        break;
+                    case 86: // V
+                        event.preventDefault();
+                        if ($gameEditor.hasClipboard()) {
+                            var pastedSource = $gameEditor.getLightFromClipboard();
+                            pastedSource.ox = $gamePlayer.x * $gameMap.tileWidth();
+                            pastedSource.oy = $gamePlayer.y * $gameMap.tileHeight();
+                            $gameLighting.add(pastedSource);
+                            $gameLighting.save();
+                            $gameEditor.lightingTool.setLight(pastedSource);
 
-                        EditorHistory.addToHistory({
-                            type: "CREATE_LIGHT",
-                            source: pastedSource,
-                            sourceId: $gameLighting.getIdOfLight(pastedSource)
-                        });
-                    }
-                    break;
-                case 89: // Y
-                    EditorHistory.redo();
-                    break;
-                case 90: // Z
-                    EditorHistory.undo();
-                    break;
+                            EditorHistory.addToHistory({
+                                type: "CREATE_LIGHT",
+                                source: pastedSource,
+                                sourceId: $gameLighting.getIdOfLight(pastedSource)
+                            });
+                        }
+                        break;
+                    case 89: // Y
+                        EditorHistory.redo();
+                        break;
+                    case 90: // Z
+                        EditorHistory.undo();
+                        break;
+                }
             }
-        }
-    } else if (!event.altKey) {
-        if (GameEditor.ACTIVE && SceneManager._scene instanceof Scene_Map) {
-            switch (event.keyCode) {
-                case 46: case 8: // Delete / Backspace
-                    $gameEditor.lightingTool.deleteLight();
-                    $gameLighting.save();
-                    break;
+        } else if (!event.altKey) {
+            if (GameEditor.ACTIVE && SceneManager._scene instanceof Scene_Map) {
+                switch (event.keyCode) {
+                    case 46:
+                    case 8: // Delete / Backspace
+                        $gameEditor.lightingTool.deleteLight();
+                        $gameLighting.save();
+                        break;
+                }
             }
         }
     }
-    return this._copyPaste_onKeyDown(event);
+    return FLZ_LightingTool_Graphics_copyPaste_onKeyDown.call(this, event);
 };
 
 //-----------------------------------------------------------------------------
@@ -2510,4 +2578,81 @@ var FLZ_LightingTool_DataManager_setupNewGame = DataManager.setupNewGame;
 DataManager.setupNewGame = function() {
     FLZ_LightingTool_DataManager_setupNewGame.call(this);
     $gameLighting.lightData = new Light_Data();
+};
+
+//-----------------------------------------------------------------------------
+// EditorHistory
+//
+//
+EditorHistory.addMove = function(lightSource) {
+    EditorHistory.addToHistory({
+        type: "MOVE",
+        x: lightSource.ox,
+        y: lightSource.oy,
+        sourceId: $gameLighting.getIdOfLight(lightSource)
+    });
+};
+
+EditorHistory.addScaleIncrease = function(lightSource, change) {
+    EditorHistory.addToHistory({
+        type: "INCREASE_SCALE",
+        value: change,
+        sourceId: $gameLighting.getIdOfLight(lightSource)
+    });
+};
+
+EditorHistory.addAlphaIncrease = function(lightSource, change) {
+    EditorHistory.addToHistory({
+        type: "INCREASE_ALPHA",
+        value: change,
+        sourceId: $gameLighting.getIdOfLight(lightSource)
+    });
+};
+
+EditorHistory.addPulseMinIncrease = function(lightSource, change) {
+    EditorHistory.addToHistory({
+        type: "INCREASE_PULSE_MIN",
+        value: change,
+        sourceId: $gameLighting.getIdOfLight(lightSource)
+    });
+};
+
+EditorHistory.addPulseMaxIncrease = function(lightSource, change) {
+    EditorHistory.addToHistory({
+        type: "INCREASE_PULSE_MAX",
+        value: change,
+        sourceId: $gameLighting.getIdOfLight(lightSource)
+    });
+};
+
+EditorHistory.addPulseSpeedIncrease = function(lightSource, change) {
+    EditorHistory.addToHistory({
+        type: "INCREASE_PULSE_SPEED",
+        value: change,
+        sourceId: $gameLighting.getIdOfLight(lightSource)
+    });
+};
+
+EditorHistory.addFlickIntensityIncrease = function(lightSource, change) {
+    EditorHistory.addToHistory({
+        type: "INCREASE_FLICK_INTENSITY",
+        value: change,
+        sourceId: $gameLighting.getIdOfLight(lightSource)
+    });
+};
+
+EditorHistory.addFlickSpeedIncrease = function(lightSource, change) {
+    EditorHistory.addToHistory({
+        type: "INCREASE_FLICK_SPEED",
+        value: change,
+        sourceId: $gameLighting.getIdOfLight(lightSource)
+    });
+};
+
+EditorHistory.addHueChange = function(lightSource) {
+    EditorHistory.addToHistory({
+        type: "CHANGE_HUE",
+        value: lightSource.hue,
+        sourceId: $gameLighting.getIdOfLight(lightSource)
+    });
 };

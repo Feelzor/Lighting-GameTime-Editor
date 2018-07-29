@@ -18,6 +18,7 @@
  *
  * Version 1.2.0:
  * + Add an History of changes
+ * + Add a number select
  * 
  * Version 1.1.0:
  * -- FeelZoR continues development
@@ -165,17 +166,24 @@ function Label() {
 Label.prototype = Object.create(Sprite.prototype);
 Label.prototype.constructor = Label;
 
-Label.prototype.initialize = function(x, y, text, align, fontSize, fontBold) {
+Label.prototype.initialize = function(x, y, text, align, fontSize, fontBold, callback) {
     Sprite.prototype.initialize.call(this);
+
     this.x = x;
     this.y = y;
     this.text = text;
     this.align = align || 'center';
     this._setAnchor();
-    this.bitmap = new Bitmap(this.text.length * 10, 25);
+
+    this.width = this.text.length * 10;
+    this.height = 25;
+    this.visible = true;
+
+    this.bitmap = new Bitmap(this.width, this.height);
     this.bitmap.fontFace = 'Arial';
     this.bitmap.fontSize = fontSize || 14;
     this.bitmap.fontBold = fontBold || false;
+    this._callback = callback;
 };
 
 Label.prototype._setAnchor = function() {
@@ -204,6 +212,41 @@ Label.prototype.update = function() {
     var align = this.align;
     this.bitmap.clear();
     this.bitmap.drawText(text, 0, 0, width, height, align);
+
+    if (TouchInput.isTriggered()) {
+        if (this.isTriggered()) {
+            this.onClick();
+        }
+    }
+};
+
+Label.prototype.isVisible = function() {
+    return this.visible;
+};
+
+Label.prototype.onClick = function() {
+    if (this._callback) {
+        this._callback.call(this);
+    }
+};
+
+Label.prototype.isTriggered = function() {
+    var mx = TouchInput.x;
+    var my = TouchInput.y;
+    var minX, maxX;
+
+    if (Number(this.anchor.x) === 0.0) {
+        minX = this.x;
+        maxX = this.x + this.width;
+    } else if (Number(this.anchor.x) === 0.5) {
+        minX = maxX = this.x + this.width / 2;
+    } else {
+        minX = this.x - this.width;
+        maxX = this.x;
+    }
+
+    return (mx >= minX && mx <= maxX &&
+        my >= this.y - this.height / 2 && my <= this.y + this.height / 2);
 };
 
 //-----------------------------------------------------------------------------
@@ -415,6 +458,136 @@ ButtonText.prototype.update = function() {
     this.bitmap.clear();
     this.bitmap.fillRect(0, 0, width, height, 0x000000);
     this.bitmap.drawText(text, 0, 0, width, height, 'center');
+};
+
+//-----------------------------------------------------------------------------
+// NumberInput
+//
+//
+function NumberInput() {
+    this.initialize.apply(this, arguments);
+}
+
+NumberInput.prototype = Object.create(Sprite.prototype);
+NumberInput.prototype.constructor = NumberInput;
+
+NumberInput.prototype.initialize = function(text, width, height, defaultNumber, callback) {
+    Sprite.prototype.initialize.call(this);
+
+    this.text = text;
+    this.anchor = new PIXI.Point(0.5, 0.5);
+
+    width = Math.max(width, this.text.length * 10 + 20);
+    height = Math.max(height, 50);
+    this.move(Graphics.width / 2, Graphics.height / 2);
+    this.bitmap = new Bitmap(width, height);
+    this.bitmap.fontFace = 'Arial';
+    this.bitmap.fontSize = 20;
+
+    this._active = true;
+    this.defaultNumber = defaultNumber;
+    this.number = null;
+    this.callback = callback;
+
+    document.addEventListener('keydown', this._onKeyDown.bind(this));
+};
+
+NumberInput.prototype.isActive = function() {
+    return this._active;
+};
+
+NumberInput.prototype.update = function() {
+    if (this._active) {
+        var text = this.text;
+        var width = this.bitmap.width;
+        var height = this.bitmap.height;
+        var numberY = height / 3;
+        var number = this.number || this.defaultNumber;
+
+        this.bitmap.clear();
+        this.bitmap.fillRect(0, 0, width, height, "rgba(0,0,0,0.7)");
+        this.bitmap.fillRect(10, numberY, width - 20, height / 3, "#DDDDDD");
+        this.bitmap.drawText(text, 10, 5, width - 20, height / 4, 'center');
+        this.bitmap.drawText(String(number), 10, numberY, width - 20, height / 3, 'center');
+    }
+};
+
+NumberInput.prototype.close = function() {
+    this._active = false;
+    $gameEditor.lightingTool.frozen = false;
+};
+
+NumberInput.prototype._validate = function() {
+    var newNumber = Number(this.number || this.defaultNumber);
+    if (isNaN(newNumber)) newNumber = this.defaultNumber;
+    this.callback.call(this, newNumber);
+    this.bitmap.clear();
+    this.close();
+};
+
+NumberInput.prototype._addNumber = function(number) {
+    if (this.number == null) this.number = "";
+    this.number = this.number + String(number);
+};
+
+NumberInput.prototype._removeLastNumber = function() {
+    if (this.number == null) return;
+    this.number = this.number.slice(0, -1);
+
+    if (this.number.length === 0) this.number = null;
+};
+
+NumberInput.prototype._onKeyDown = function(event) {
+    if (!this._active) return;
+    switch (event.keyCode) {
+        case 8: // Backspace
+            this._removeLastNumber();
+            break;
+        case 13: // Enter
+            this._validate();
+            break;
+        case 27: // Escape
+            this.close();
+            break;
+
+        case 48: case 96: // 0 / Num0
+            this._addNumber(0);
+            break;
+        case 49: case 97: // 1 / Num1
+            this._addNumber(1);
+            break;
+        case 50: case 98: // 2 / Num2
+            this._addNumber(2);
+            break;
+        case 51: case 99: // 3 / Num3
+            this._addNumber(3);
+            break;
+        case 52: case 100: // 4 / Num4
+            this._addNumber(4);
+            break;
+        case 53: case 101: // 5 / Num5
+            this._addNumber(5);
+            break;
+        case 54: case 102: // 6 / Num6
+            this._addNumber(6);
+            break;
+        case 55: case 103: // 7 / Num7
+            this._addNumber(7);
+            break;
+        case 56: case 104: // 8 / Num8
+            this._addNumber(8);
+            break;
+        case 57: case 105: // 9 / Num9
+            this._addNumber(9);
+            break;
+        case 188: case 190: // , .
+            this._addNumber('.');
+            break;
+        default:
+            return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
 };
 
 //-----------------------------------------------------------------------------
