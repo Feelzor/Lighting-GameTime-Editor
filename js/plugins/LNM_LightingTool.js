@@ -1920,7 +1920,7 @@ LightSourceIcon.prototype._updatePosition = function() {
 
 Graphics._copyPaste_onKeyDown = Graphics._onKeyDown;
 Graphics._onKeyDown = function(event) {
-    if (event.ctrlKey) {
+    if (event.ctrlKey || event.metaKey) {
         if (GameEditor.ACTIVE && SceneManager._scene instanceof Scene_Map) {
             switch (event.keyCode) {
                 case 67: // C
