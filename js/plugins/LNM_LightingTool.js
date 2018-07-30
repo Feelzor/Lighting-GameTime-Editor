@@ -2544,8 +2544,10 @@ Light_Limit.prototype.initialize = function(timeBeginIn, timeEndIn, lightIdIn) {
 Light_Limit.prototype.updateValue = function(value) {
     if (this._lastValue !== value) {
         this._lastValue = value;
-        if (value) { $gameLighting.getLightById(this.lightId).turnOn(); }
-        else { $gameLighting.getLightById(this.lightId).turnOff(); }
+        var light = $gameLighting.getLightById(this.lightId);
+        if (light == null) return;
+        if (value) { light.turnOn(); }
+        else { light.turnOff(); }
     }
 };
 
