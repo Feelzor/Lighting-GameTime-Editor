@@ -23,6 +23,14 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * @desc true if you are experiencing incompatibilities with another plugin. Put this one at the bottom of the list.
  * @default false
  *
+ * @param Random Flick
+ * @desc false if you want the flicker animation to happen after a constant amount of time.
+ * @default true
+ *
+ * @param Random Flick Speed Factor
+ * @desc The factor defining the probability of flicker animation to happen each time. High numbers may create issues.
+ * @default 5
+ *
  * @param ---Player torch---
  * @default
  *
@@ -370,6 +378,8 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 GameEditor.Parameters = Object.assign({}, GameEditor.Parameters, PluginManager.parameters('LNM_LightingTool'));
 GameEditor.TOOLS.IncompatibilityFix = String(GameEditor.Parameters['Incompatibility fix'] || false);
+GameEditor.TOOLS.RandomFlick = String(GameEditor.Parameters['Random Flick'] || false);
+GameEditor.TOOLS.RandomFlickSpeedFactor = String(GameEditor.Parameters['Random Flick Speed Factor'] || false);
 GameEditor.TOOLS.PlayerTorchFourDirections = String(GameEditor.Parameters['Player Torch 4 Directions'] || false);
 GameEditor.TOOLS.PlayerTorchSwitch = Number(GameEditor.Parameters['Player Torch Switch'] || 1);
 GameEditor.TOOLS.PlayerTorchFilename = String(GameEditor.Parameters['Player Torch Filename'] || 'default');
@@ -1219,7 +1229,8 @@ LightSource.prototype._updateAnimation = function() {
     }
     // Flicker
     if (this.flickerAnimation === true) {
-        if (this._flickCounter > 0) {
+        if (this._flickCounter > 0 && (GameEditor.TOOLS.RandomFlick === "false" ||
+                Math.randomInt(this._flickCounter / GameEditor.TOOLS.RandomFlickSpeedFactor) !== 0)) {
             this._flickCounter -= this._flickSpeed;
             this.alpha = this.oalpha;
         } else {
