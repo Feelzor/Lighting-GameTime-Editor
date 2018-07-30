@@ -518,6 +518,63 @@ LightingController.prototype.save = function() {
     $gameMap.saveLightingData();
 };
 
+LightingController.prototype.getIdArrayFromRange = function(range) {
+    var isEventList = false;
+    var rangeArray = range.split('-');
+    if (rangeArray[0].startsWith('e')) {
+        rangeArray[0] = rangeArray[0].replace('e', '');
+        rangeArray[1] = rangeArray[1].replace('e', '');
+        isEventList = true;
+    }
+
+    var idArray = [];
+    for (var i = Number(rangeArray[0]); i <= Number(rangeArray[1]); i++) {
+        idArray.push((isEventList) ? 'e' + String(i) : String(i));
+    }
+
+    return idArray;
+};
+
+/**
+ * Get the array of ids from a String
+ * @param {String} ids The ids to select
+ * @returns {String[]} The resulting array
+ */
+LightingController.prototype.getIdArray = function(ids) {
+    var idList = [];
+    if (ids.startsWith('[') && ids.endsWith(']')) {
+        idList = ids.substring(1, ids.length - 1).replace(/\s/g, '').split(',');
+        for (var i = idList.length - 1; i >= 0; i--) {
+            if (idList[i].indexOf('-') !== -1) {
+                var idRange = idList.splice(i, 1)[0];
+                idList = idList.concat(this.getIdArrayFromRange(idRange));
+            }
+        }
+    } else if (ids.indexOf('-') !== -1) {
+        idList = this.getIdArrayFromRange(ids);
+    } else {
+        idList = [ids];
+    }
+
+    return idList;
+};
+
+/**
+ * Gets an array of lights from a list of ids
+ * @param {String} ids The ids to select
+ * @returns {LightSource[]}
+ */
+LightingController.prototype.getLightArrayById = function(ids) {
+    var lightList = [];
+    var idList = this.getIdArray(ids);
+
+    idList.forEach(function(id) {
+        lightList.push(this.getLightById(id));
+    }, this);
+
+    return lightList;
+};
+
 /**
  * Gets the light with the specified id
  *
@@ -2523,25 +2580,39 @@ GameTime.prototype.updateAllLightLimits = function() {
 var FLZ_GameTime_Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
 Game_Interpreter.prototype.pluginCommand = function(command, args) {
     FLZ_GameTime_Game_Interpreter_pluginCommand.call(this, command, args);
+    var lightArray;
     if (command === 'Light') {
         switch (args[0].toLowerCase()) {
             case 'on':
-                $gameLighting.getLightById(args[1]).turnOn();
+                lightArray = $gameLighting.getLightArrayById(args[1]);
+                lightArray.forEach(function(light) { if (light != null) light.turnOn(); });
                 break;
             case 'off':
-                $gameLighting.getLightById(args[1]).turnOff();
+                lightArray = $gameLighting.getLightArrayById(args[1]);
+                lightArray.forEach(function(light) { if (light != null) light.turnOff(); });
                 break;
             case 'limit':
                 var timeBegin = String(args[1]).split(':');
                 var timeEnd = String(args[2]).split(':');
-                $gameTime.addLightLimit(new Light_Limit(timeBegin, timeEnd, args[3]));
+                lightArray = $gameLighting.getIdArray(args[3]);
+                lightArray.forEach(function(lightId) {
+                    if ($gameLighting.getLightById(lightId) != null)
+                        $gameTime.addLightLimit(new Light_Limit(timeBegin, timeEnd, lightId));
+                });
                 break;
             case 'hue':
-                if (args[1].toLowerCase() === "remove" || args[1].toLowerCase() === "reset")
-                    $gameLighting.getLightById(args[2]).removeTemporaryColor();
+                if (args[1].toLowerCase() === "remove" || args[1].toLowerCase() === "reset") {
+                    lightArray = $gameLighting.getLightArrayById(args[2]);
+                    lightArray.forEach(function(light) {
+                        if (light != null) light.removeTemporaryColor();
+                    });
+                }
                 else {
                     var newHue = Number(args[1]);
-                    $gameLighting.getLightById(args[2]).setTemporaryColor(newHue);
+                    lightArray = $gameLighting.getLightArrayById(args[2]);
+                    lightArray.forEach(function(light) {
+                        if (light != null) light.setTemporaryColor(newHue);
+                    });
                 }
                 break;
         }
