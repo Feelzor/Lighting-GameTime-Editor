@@ -393,28 +393,40 @@ GameEditor.TOOLS.PlayerTorchPulseMax = parseFloat(GameEditor.Parameters['Player 
 GameEditor.TOOLS.PlayerTorchPulseSpeed = parseInt(GameEditor.Parameters['Player Torch pulseSpeed'] || 7);
 GameEditor.TOOLS.PlayerTorchFlickIntensity = parseInt(GameEditor.Parameters['Player Torch flickIntensity'] || 1);
 GameEditor.TOOLS.PlayerTorchFlickSpeed = parseInt(GameEditor.Parameters['Player Torch flickSpeed'] || 3);
-GameEditor.TOOLS.BonfireFilename = String(GameEditor.Parameters['Bonfire Filename'] || 'default');
-GameEditor.TOOLS.BonfireColor = Number(GameEditor.Parameters['Bonfire Color'] || 28);
-GameEditor.TOOLS.BonfireScale = parseFloat(GameEditor.Parameters['Bonfire Scale'] || 1.3);
-GameEditor.TOOLS.BonfireAlpha = parseFloat(GameEditor.Parameters['Bonfire Alpha'] || 1.0);
-GameEditor.TOOLS.BonfirePulseMin = parseFloat(GameEditor.Parameters['Bonfire pulseMin'] || 1.1);
-GameEditor.TOOLS.BonfirePulseMax = parseFloat(GameEditor.Parameters['Bonfire pulseMax'] || 1.3);
-GameEditor.TOOLS.BonfirePulseSpeed = parseInt(GameEditor.Parameters['Bonfire pulseSpeed'] || 15);
-GameEditor.TOOLS.BonfireFlickIntensity = parseInt(GameEditor.Parameters['Bonfire flickIntensity'] || 1);
-GameEditor.TOOLS.BonfireFlickSpeed = parseInt(GameEditor.Parameters['Bonfire flickSpeed'] || 3);
-GameEditor.TOOLS.TorchFilename = String(GameEditor.Parameters['Torch Filename'] || 'default');
-GameEditor.TOOLS.TorchColor = Number(GameEditor.Parameters['Torch Color'] || 15);
-GameEditor.TOOLS.TorchScale = parseFloat(GameEditor.Parameters['Torch Scale'] || 1.0);
-GameEditor.TOOLS.TorchAlpha = parseFloat(GameEditor.Parameters['Torch Alpha'] || 1.0);
-GameEditor.TOOLS.TorchPulseMin = parseFloat(GameEditor.Parameters['Torch pulseMin'] || 0.98);
-GameEditor.TOOLS.TorchPulseMax = parseFloat(GameEditor.Parameters['Torch pulseMax'] || 1.02);
-GameEditor.TOOLS.TorchPulseSpeed = parseInt(GameEditor.Parameters['Torch pulseSpeed'] || 7);
-GameEditor.TOOLS.TorchFlickIntensity = parseInt(GameEditor.Parameters['Torch flickIntensity'] || 1);
-GameEditor.TOOLS.TorchFlickSpeed = parseInt(GameEditor.Parameters['Torch flickSpeed'] || 3);
-GameEditor.TOOLS.AmbientFilename = String(GameEditor.Parameters['Ambient Filename'] || 'default');
-GameEditor.TOOLS.AmbientColor = Number(GameEditor.Parameters['Ambient Color'] || 28);
-GameEditor.TOOLS.AmbientScale = parseFloat(GameEditor.Parameters['Ambient Scale'] || 5.0);
-GameEditor.TOOLS.AmbientAlpha = parseFloat(GameEditor.Parameters['Ambient Alpha'] || 0.5);
+
+GameEditor.TOOLS.Bonfire = {};
+GameEditor.TOOLS.Bonfire.filename = String(GameEditor.Parameters['Bonfire Filename'] || 'default');
+GameEditor.TOOLS.Bonfire.color = Number(GameEditor.Parameters['Bonfire Color'] || 28);
+GameEditor.TOOLS.Bonfire.scale = parseFloat(GameEditor.Parameters['Bonfire Scale'] || 1.3);
+GameEditor.TOOLS.Bonfire.alpha = parseFloat(GameEditor.Parameters['Bonfire Alpha'] || 1.0);
+GameEditor.TOOLS.Bonfire.pulse = true;
+GameEditor.TOOLS.Bonfire.pulseMin = parseFloat(GameEditor.Parameters['Bonfire pulseMin'] || 1.1);
+GameEditor.TOOLS.Bonfire.pulseMax = parseFloat(GameEditor.Parameters['Bonfire pulseMax'] || 1.3);
+GameEditor.TOOLS.Bonfire.pulseSpeed = parseInt(GameEditor.Parameters['Bonfire pulseSpeed'] || 15);
+GameEditor.TOOLS.Bonfire.flick = true;
+GameEditor.TOOLS.Bonfire.flickIntensity = parseInt(GameEditor.Parameters['Bonfire flickIntensity'] || 1);
+GameEditor.TOOLS.Bonfire.flickSpeed = parseInt(GameEditor.Parameters['Bonfire flickSpeed'] || 3);
+
+GameEditor.TOOLS.Torch = {};
+GameEditor.TOOLS.Torch.filename = String(GameEditor.Parameters['Torch Filename'] || 'default');
+GameEditor.TOOLS.Torch.color = Number(GameEditor.Parameters['Torch Color'] || 15);
+GameEditor.TOOLS.Torch.scale = parseFloat(GameEditor.Parameters['Torch Scale'] || 1.0);
+GameEditor.TOOLS.Torch.alpha = parseFloat(GameEditor.Parameters['Torch Alpha'] || 1.0);
+GameEditor.TOOLS.Torch.pulse = true;
+GameEditor.TOOLS.Torch.pulseMin = parseFloat(GameEditor.Parameters['Torch pulseMin'] || 0.98);
+GameEditor.TOOLS.Torch.pulseMax = parseFloat(GameEditor.Parameters['Torch pulseMax'] || 1.02);
+GameEditor.TOOLS.Torch.pulseSpeed = parseInt(GameEditor.Parameters['Torch pulseSpeed'] || 7);
+GameEditor.TOOLS.Torch.flick = true;
+GameEditor.TOOLS.Torch.flickIntensity = parseInt(GameEditor.Parameters['Torch flickIntensity'] || 1);
+GameEditor.TOOLS.Torch.flickSpeed = parseInt(GameEditor.Parameters['Torch flickSpeed'] || 3);
+
+GameEditor.TOOLS.Ambient = {};
+GameEditor.TOOLS.Ambient.filename = String(GameEditor.Parameters['Ambient Filename'] || 'default');
+GameEditor.TOOLS.Ambient.color = Number(GameEditor.Parameters['Ambient Color'] || 28);
+GameEditor.TOOLS.Ambient.scale = parseFloat(GameEditor.Parameters['Ambient Scale'] || 5.0);
+GameEditor.TOOLS.Ambient.alpha = parseFloat(GameEditor.Parameters['Ambient Alpha'] || 0.5);
+GameEditor.TOOLS.Ambient.pulse = false;
+GameEditor.TOOLS.Ambient.flick = false;
 
 //-----------------------------------------------------------------------------
 // Lighting Controller
@@ -701,7 +713,7 @@ Spriteset_Map.prototype.update = function() {
 Spriteset_Map.prototype.createLighting = function() {
     $gameLighting.clear();
     this._lightingTexture = PIXI.RenderTexture.create(Graphics.width, Graphics.height);
-    this._lightingSurface = new LightingSurface();
+    this._lightingSurface = new LightingSurface(false);
     this._lightingSprite = new PIXI.Sprite();
     this._lightingSprite.texture = this._lightingTexture;
     this._lightingSprite.blendMode = PIXI.BLEND_MODES.MULTIPLY;
@@ -715,18 +727,28 @@ Spriteset_Map.prototype.updateLighting = function() {
     Graphics._renderer.render(this._lightingSurface, this._lightingTexture, false);
 };
 
+Spriteset_Map.prototype.createUpperLayer = function() {
+    Spriteset_Base.prototype.createUpperLayer.call(this);
+    this.createLightingToolLayer();
+};
+
+Spriteset_Map.prototype.createLightingToolLayer = function() {
+    this._lightIconsSurface = new LightIconsSurface();
+    this.addChild(this._lightIconsSurface);
+};
+
 //-----------------------------------------------------------------------------
 // Spriteset_Battle
 //
 //
-if (GameEditor.TOOLS.TintDuringBattle.toLowerCase() === "true") {
-FLZ_Spriteset_Battle_createLowerLayer = Spriteset_Battle.prototype.createLowerLayer;
+if (GameEditor.TOOLS.TintDuringBattle.toLowerCase() === "true" && !DataManager.isBattleTest()) {
+var FLZ_Spriteset_Battle_createLowerLayer = Spriteset_Battle.prototype.createLowerLayer;
 Spriteset_Battle.prototype.createLowerLayer = function () {
     FLZ_Spriteset_Battle_createLowerLayer.call(this);
     this.createLighting();
 };
 
-FLZ_Spriteset_Battle_update = Spriteset_Battle.prototype.update;
+var FLZ_Spriteset_Battle_update = Spriteset_Battle.prototype.update;
 Spriteset_Battle.prototype.update = function () {
     FLZ_Spriteset_Battle_update.call(this);
     this.updateLighting();
@@ -735,7 +757,7 @@ Spriteset_Battle.prototype.update = function () {
 Spriteset_Battle.prototype.createLighting = function () {
     $gameLighting.clear();
     this._lightingTexture = PIXI.RenderTexture.create(Graphics.width, Graphics.height);
-    this._lightingSurface = new LightingSurface(false);
+    this._lightingSurface = new LightingSurface(true);
     this._lightingSprite = new PIXI.Sprite();
     this._lightingSprite.texture = this._lightingTexture;
     this._lightingSprite.blendMode = PIXI.BLEND_MODES.MULTIPLY;
@@ -746,6 +768,16 @@ Spriteset_Battle.prototype.createLighting = function () {
 Spriteset_Battle.prototype.updateLighting = function () {
     this._lightingSurface.update();
     Graphics._renderer.render(this._lightingSurface, this._lightingTexture, false);
+};
+
+Spriteset_Battle.prototype.createUpperLayer = function() {
+    Spriteset_Base.prototype.createUpperLayer.call(this);
+    this.createLightingToolLayer();
+};
+
+Spriteset_Battle.prototype.createLightingToolLayer = function() {
+    this._lightIconsSurface = new LightIconsSurface();
+    this.addChild(this._lightIconsSurface);
 };
 }
 
@@ -761,13 +793,13 @@ function LightingSurface() {
 LightingSurface.prototype = Object.create(PIXI.Container.prototype);
 LightingSurface.prototype.constructor = LightingSurface;
 
-LightingSurface.prototype.initialize = function(createLights) {
+LightingSurface.prototype.initialize = function(isBattle) {
     PIXI.Container.call(this);
-    this.lightsEnabled = (createLights !== false);
     this._width = Graphics.width; 
     this._height = Graphics.height;
     this._createSurface();
-    if (this.lightsEnabled) this._createLights();
+    if (isBattle) this._createBattleLights();
+    else this._createLights();
 };
 
 LightingSurface.prototype._createSurface = function() {
@@ -790,8 +822,22 @@ LightingSurface.prototype._createLights = function() {
     }
     // From editor
     this.createEditorLights($gameMap.getLightingData(this));
-    
+
     $gameLighting.checkPlayerTorch();
+};
+
+LightingSurface.prototype._createBattleLights = function() {
+    // From enemies
+    var enemies = $gameTroop.members();
+    for (var i = 0; i < enemies.length; i++) {
+        var data = $dataEnemies[enemies[i].enemyId()].meta;
+        if (enemies[i] && data.light != null) {
+            this.addLightSourceToEnemy(data.light, enemies[i], i);
+        }
+    }
+
+    // From editor
+    this.createEditorLights($gameMap.getBattleLightingData(this));
 };
 
 LightingSurface.prototype.createEditorLights = function(lightSourcesData) {
@@ -823,18 +869,69 @@ LightingSurface.prototype.createEditorLights = function(lightSourcesData) {
     }
 };
 
+LightingSurface.prototype.addLightSourceToEnemy = function(type, enemy, id) {
+    if (!type) return;
+    if (!String(id).startsWith('e')) id = 'e' + id;
+    var x = enemy.screenX();
+    var y = enemy.screenY();
+
+
+    var lightSource;
+    switch (type) {
+        case "Bonfire":
+            lightSource = new LightSourceEnemy.initializeFromPreset(GameEditor.TOOLS.Bonfire, id, enemy);
+            break;
+        case "Torch":
+            lightSource = new LightSourceEnemy.initializeFromPreset(GameEditor.TOOLS.Torch, id, enemy);
+            break;
+        case "Ambient":
+            lightSource = new LightSourceEnemy.initializeFromPreset(GameEditor.TOOLS.Ambient, id, enemy);
+            break;
+        default:
+            var customType = type.slice(0, 5);
+            if (customType !== "Light") return;
+            var lightConfig = type.split(').');
+            if (lightConfig[0]) {
+                // Creates custom light
+                var params = lightConfig[0];
+                var temp = params.replace('Light(', '');
+                params = temp.split(',');
+                // Clean parameters
+                var filename = String(params[0]);
+                var scale = new PIXI.Point(parseFloat(params[1]), parseFloat(params[1]));
+                var hue = parseInt(params[2]);
+                var alpha = parseFloat(params[3]);
+                lightSource = new LightSourceEnemy(filename, x, y, hue, scale, alpha, id);
+            }
+            // Setup animations
+            for (var i = 1; i < lightConfig.length; i++) {
+                if (!lightConfig[i]) return;
+                var params = lightConfig[i];
+                var animationToSetup = params.slice(0, 8);
+                if (animationToSetup === "addPulse") {
+                    lightSource = this.setupPulseAnimationToEvent(lightSource, params)
+                } else if (animationToSetup === "addFlick") {
+                    lightSource = this.setupFlickAnimationToEvent(lightSource, params)
+                }
+            }
+            break;
+    }
+    this.addChild(lightSource);
+    $gameLighting.eventList[id] = lightSource;
+};
+
 LightingSurface.prototype.addLightSourceToEvent = function(type, x, y, eventId) {
     if (!type) return;
     var lightSource;
     switch (type) {
         case "Bonfire":
-            lightSource = new BonfireLightEvent(x, y, eventId);
+            lightSource = new LightSourceEvent.initializeFromPreset(GameEditor.TOOLS.Bonfire, x, y, eventId);
             break;
         case "Torch":
-            lightSource = new TorchLightEvent(x, y, eventId);
+            lightSource = new LightSourceEvent.initializeFromPreset(GameEditor.TOOLS.Torch, x, y, eventId);
             break;
         case "Ambient":
-            lightSource = new AmbientLightEvent(x, y, eventId);
+            lightSource = new LightSourceEvent.initializeFromPreset(GameEditor.TOOLS.Ambient, x, y, eventId);
             break;
         default:
             var customType = type.slice(0, 5);
@@ -894,7 +991,7 @@ LightingSurface.prototype.update = function() {
         this._surface.bitmap.fillRect(0, 0, this._width, this._height, color);
         this._lastColor = color;
     }
-    if (this.lightsEnabled) this._updateLights();
+    this._updateLights();
     this.children.forEach(function(child) {
         if (child.update) {
             child.update();
@@ -1275,6 +1372,87 @@ LightSource.prototype.setData = function(data) {
     }
 };
 
+LightSource.initializeFromPreset = function(preset, x, y, id, CalledClass) {
+    var filename = preset.filename;
+    var hue = preset.color;
+    var scale = new PIXI.Point(preset.scale, preset.scale);
+    var alpha = preset.alpha;
+    var lightSource;
+
+    if (CalledClass) lightSource = new CalledClass(filename, x, y, hue, scale, alpha, id);
+    else lightSource = new LightSource(filename, x, y, hue, scale, alpha, id);
+
+    lightSource.ox = x;
+    lightSource.oy = y;
+
+    if (preset.pulse) {
+        var pulseMin = preset.pulseMin;
+        var pulseMax = preset.pulseMax;
+        var pulseSpeed = preset.pulseSpeed;
+        lightSource.setupPulseAnimation(pulseMin, pulseMax, pulseSpeed);
+    }
+
+    if (preset.flick) {
+        var flickIntensity = preset.flickIntensity;
+        var flickSpeed = preset.flickSpeed;
+        lightSource.setupFlickerAnimation(flickIntensity, flickSpeed);
+    }
+
+    return lightSource;
+};
+
+
+//-----------------------------------------------------------------------------
+// LightSourceEvent
+//
+//
+
+function LightSourceEnemy() {
+    this.initialize.apply(this, arguments);
+}
+
+LightSourceEnemy.prototype = Object.create(LightSource.prototype);
+LightSourceEnemy.prototype.constructor = LightSourceEnemy;
+
+LightSourceEnemy.prototype.initialize = function(filename, x, y, hue, scale, alpha, id, enemy) {
+    LightSource.prototype.initialize.call(this, filename, x, y, hue, scale, alpha, "e" + id);
+    this.enemy = enemy;
+    this.ox = x;
+    this.oy = y;
+    this.offsetX = this.offsetY = 0;
+};
+
+LightSourceEnemy.prototype._updateVisibility = function() {
+    LightSource.prototype._updateVisibility.call(this);
+
+    if (this.enemy.isHidden() || this.enemy.isDead()) this.visible = false;
+};
+
+LightSourceEnemy.prototype._updatePosition = function() {
+    if (this.offsetY === 0) this._updateYOffset();
+
+    this.x = this.enemy.screenX();
+    this.y = this.enemy.screenY() + this.offsetY;
+};
+
+LightSourceEnemy.loadEnemyBitmap = function(name, hue) {
+    if ($gameSystem.isSideView()) {
+        return ImageManager.loadSvEnemy(name, hue);
+    } else {
+        return ImageManager.loadEnemy(name, hue);
+    }
+};
+
+LightSourceEnemy.prototype._updateYOffset = function() {
+    this.offsetY = -LightSourceEnemy.loadEnemyBitmap(this.enemy.battlerName(), this.enemy.battlerHue()).height / 2;
+};
+
+LightSourceEnemy.initializeFromPreset = function(preset, id, enemy) {
+    var lightSource = LightSource.initializeFromPreset(preset, enemy.screenX(), enemy.screenY(), id, LightSourceEnemy);
+    lightSource.enemy = enemy;
+    return lightSource;
+};
+
 //-----------------------------------------------------------------------------
 // LightSourceEvent
 //
@@ -1310,167 +1488,8 @@ LightSourceEvent.prototype._updatePosition = function() {
     this.y = this.offsetY + this.getOriginY(eventLinkedTo._realY) - ($gameMap.displayY() * $gameMap.tileHeight());
 };
 
-//-----------------------------------------------------------------------------
-// AmbientLightEvent
-//
-//
-
-function AmbientLightEvent() {
-    this.initialize.apply(this, arguments);
-}
-
-AmbientLightEvent.prototype = Object.create(LightSourceEvent.prototype);
-AmbientLightEvent.prototype.constructor = AmbientLightEvent;
-
-AmbientLightEvent.prototype.initialize = function(x, y, eventId) {
-    var filename = GameEditor.TOOLS.AmbientFilename;
-    var hue = GameEditor.TOOLS.AmbientColor;
-    var scale = new PIXI.Point(GameEditor.TOOLS.AmbientScale,
-        GameEditor.TOOLS.AmbientScale);
-    var alpha = GameEditor.TOOLS.AmbientAlpha;
-    LightSourceEvent.prototype.initialize.call(this, filename, x, y, hue, scale,
-        alpha, eventId);
-};
-
-//-----------------------------------------------------------------------------
-// TorchLightEvent
-//
-//
-
-function TorchLightEvent() {
-    this.initialize.apply(this, arguments);
-}
-
-TorchLightEvent.prototype = Object.create(LightSourceEvent.prototype);
-TorchLightEvent.prototype.constructor = TorchLightEvent;
-
-TorchLightEvent.prototype.initialize = function(x, y, eventId) {
-    var filename = GameEditor.TOOLS.TorchFilename;
-    var hue = GameEditor.TOOLS.TorchColor;
-    var scale = new PIXI.Point(GameEditor.TOOLS.TorchScale,
-        GameEditor.TOOLS.TorchScale);
-    var alpha = GameEditor.TOOLS.TorchAlpha;
-    var pulseMin = GameEditor.TOOLS.TorchPulseMin;
-    var pulseMax = GameEditor.TOOLS.TorchPulseMax;
-    var pulseSpeed = GameEditor.TOOLS.TorchPulseSpeed;
-    var flickIntensity = GameEditor.TOOLS.TorchFlickIntensity;
-    var flickSpeed = GameEditor.TOOLS.TorchFlickSpeed;
-    LightSourceEvent.prototype.initialize.call(this, filename, x, y, hue, scale,
-        alpha, eventId);
-    this.setupPulseAnimation(pulseMin, pulseMax, pulseSpeed);
-    this.setupFlickerAnimation(flickIntensity, flickSpeed);
-};
-
-//-----------------------------------------------------------------------------
-// BonfireLightEvent
-//
-//
-
-function BonfireLightEvent() {
-    this.initialize.apply(this, arguments);
-}
-
-BonfireLightEvent.prototype = Object.create(LightSourceEvent.prototype);
-BonfireLightEvent.prototype.constructor = BonfireLightEvent;
-
-BonfireLightEvent.prototype.initialize = function(x, y, eventId) {
-    var filename = GameEditor.TOOLS.BonfireFilename;
-    var hue = GameEditor.TOOLS.BonfireColor;
-    var scale = new PIXI.Point(GameEditor.TOOLS.BonfireScale,
-        GameEditor.TOOLS.BonfireScale);
-    var alpha = GameEditor.TOOLS.BonfireAlpha;
-    var pulseMin = GameEditor.TOOLS.BonfirePulseMin;
-    var pulseMax = GameEditor.TOOLS.BonfirePulseMax;
-    var pulseSpeed = GameEditor.TOOLS.BonfirePulseSpeed;
-    var flickIntensity = GameEditor.TOOLS.BonfireFlickIntensity;
-    var flickSpeed = GameEditor.TOOLS.BonfireFlickSpeed;
-    LightSourceEvent.prototype.initialize.call(this, filename, x, y, hue, scale,
-        alpha, eventId);
-    this.setupPulseAnimation(pulseMin, pulseMax, pulseSpeed);
-    this.setupFlickerAnimation(flickIntensity, flickSpeed);
-};
-
-//-----------------------------------------------------------------------------
-// BonfireLight
-//
-//
-
-function BonfireLight() {
-    this.initialize.apply(this, arguments);
-}
-
-BonfireLight.prototype = Object.create(LightSource.prototype);
-BonfireLight.prototype.constructor = BonfireLight;
-
-BonfireLight.prototype.initialize = function(x, y) {
-    var filename = GameEditor.TOOLS.BonfireFilename;
-    var hue = GameEditor.TOOLS.BonfireColor;
-    var scale = new PIXI.Point(GameEditor.TOOLS.BonfireScale,
-        GameEditor.TOOLS.BonfireScale);
-    var alpha = GameEditor.TOOLS.BonfireAlpha;
-    var pulseMin = GameEditor.TOOLS.BonfirePulseMin;
-    var pulseMax = GameEditor.TOOLS.BonfirePulseMax;
-    var pulseSpeed = GameEditor.TOOLS.BonfirePulseSpeed;
-    var flickIntensity = GameEditor.TOOLS.BonfireFlickIntensity;
-    var flickSpeed = GameEditor.TOOLS.BonfireFlickSpeed;
-    LightSource.prototype.initialize.call(this, filename, x, y, hue, scale, alpha);
-    this.ox = x;
-    this.oy = y;
-    this.setupPulseAnimation(pulseMin, pulseMax, pulseSpeed);
-    this.setupFlickerAnimation(flickIntensity, flickSpeed);
-};
-
-//-----------------------------------------------------------------------------
-// TorchLight
-//
-//
-
-function TorchLight() {
-    this.initialize.apply(this, arguments);
-}
-
-TorchLight.prototype = Object.create(LightSource.prototype);
-TorchLight.prototype.constructor = TorchLight;
-
-TorchLight.prototype.initialize = function(x, y) {
-    var filename = GameEditor.TOOLS.TorchFilename;
-    var hue = GameEditor.TOOLS.TorchColor;
-    var scale = new PIXI.Point(GameEditor.TOOLS.TorchScale,
-        GameEditor.TOOLS.TorchScale);
-    var alpha = GameEditor.TOOLS.TorchAlpha;
-    var pulseMin = GameEditor.TOOLS.TorchPulseMin;
-    var pulseMax = GameEditor.TOOLS.TorchPulseMax;
-    var pulseSpeed = GameEditor.TOOLS.TorchPulseSpeed;
-    var flickIntensity = GameEditor.TOOLS.TorchFlickIntensity;
-    var flickSpeed = GameEditor.TOOLS.TorchFlickSpeed;
-    LightSource.prototype.initialize.call(this, filename, x, y, hue, scale, alpha);
-    this.ox = x;
-    this.oy = y;
-    this.setupPulseAnimation(pulseMin, pulseMax, pulseSpeed);
-    this.setupFlickerAnimation(flickIntensity, flickSpeed);
-};
-
-//-----------------------------------------------------------------------------
-// AmbientLight
-//
-//
-
-function AmbientLight() {
-    this.initialize.apply(this, arguments);
-}
-
-AmbientLight.prototype = Object.create(LightSource.prototype);
-AmbientLight.prototype.constructor = AmbientLight;
-
-AmbientLight.prototype.initialize = function(x, y) {
-    var filename = GameEditor.TOOLS.AmbientFilename;
-    var hue = GameEditor.TOOLS.TorchColor;
-    var scale = new PIXI.Point(GameEditor.TOOLS.AmbientScale,
-        GameEditor.TOOLS.AmbientScale);
-    var alpha = GameEditor.TOOLS.AmbientAlpha;
-    LightSource.prototype.initialize.call(this, filename, x, y, hue, scale, alpha);
-    this.ox = x;
-    this.oy = y;
+LightSourceEvent.initializeFromPreset = function(preset, x, y, id) {
+    return LightSource.initializeFromPreset(preset, x, y, id, LightSourceEvent);
 };
 
 //-----------------------------------------------------------------------------
@@ -1531,13 +1550,28 @@ var LNM_LightingTool_Game_Map_setup = Game_Map.prototype.setup;
 Game_Map.prototype.setup = function(mapId) {
     LNM_LightingTool_Game_Map_setup.call(this, mapId);
     this._lightingMapData = new Lighting_Map(mapId);
+    this._lightingBattleData = new Lighting_Battle(mapId);
 };
 
 Game_Map.prototype.getLightingData = function(instance) {
     var data = this._lightingMapData.load(instance);
     if (Array.isArray(data)) {
         var dataCopy = data;
-        data = {}
+        data = {};
+        for (var i = 0; i < dataCopy.length; i++) {
+            data[i] = dataCopy[i];
+        }
+        data.nextId = dataCopy.length;
+    }
+
+    return data;
+};
+
+Game_Map.prototype.getBattleLightingData = function(instance) {
+    var data = this._lightingBattleData.load(instance);
+    if (Array.isArray(data)) {
+        var dataCopy = data;
+        data = {};
         for (var i = 0; i < dataCopy.length; i++) {
             data[i] = dataCopy[i];
         }
@@ -1548,7 +1582,8 @@ Game_Map.prototype.getLightingData = function(instance) {
 };
 
 Game_Map.prototype.saveLightingData = function() {
-    this._lightingMapData.save();
+    if (SceneManager._scene instanceof Scene_Map) this._lightingMapData.save();
+    else this._lightingBattleData.save();
 };
 
 var LNM_LightingTool_Game_Map_refresh = Game_Map.prototype.refresh;
@@ -1571,21 +1606,19 @@ Game_Map.prototype.eraseEvent = function(eventId) {
 };
 
 //-----------------------------------------------------------------------------
-// Lighting_Map
+// Lighting_Data
+//
 //
 
-function Lighting_Map() {
+function Lighting_Data() {
     this.initialize.apply(this, arguments);
 }
 
-Lighting_Map.prototype.initialize = function(mapId) {
-    this._mapId = mapId;
-    var path = StorageManager.localContentPath() + 'data/';
-    var file = 'Map%1lighting.json'.format(mapId.padZero(3));
-    this._file = path + file;
+Lighting_Data.prototype.initialize = function() {
+    this._file = null;
 };
 
-Lighting_Map.prototype.load = function(instance) {
+Lighting_Data.prototype.load = function(instance) {
     try {
         var fs = require('fs');
         if (fs.existsSync(this._file)) {
@@ -1601,7 +1634,7 @@ Lighting_Map.prototype.load = function(instance) {
         xhr.overrideMimeType('application/json');
         xhr.onload = function() {
             var data = JSON.parse(LZString.decompressFromBase64(xhr.responseText));
-            
+
             LightingSurface.prototype.createEditorLights.call(instance, data);
         };
         xhr.send();
@@ -1609,14 +1642,14 @@ Lighting_Map.prototype.load = function(instance) {
     }
 };
 
-Lighting_Map.prototype.save = function() {
+Lighting_Data.prototype.save = function() {
     var fs = require('fs');
     var data = this._generateData();
     var file = JSON.stringify(data);
     fs.writeFile(this._file, LZString.compressToBase64(file));
 };
 
-Lighting_Map.prototype._generateData = function() {
+Lighting_Data.prototype._generateData = function() {
     var data = {};
     Object.keys($gameLighting.list).forEach(function(key) {
         if (key === "nextId") {
@@ -1626,6 +1659,42 @@ Lighting_Map.prototype._generateData = function() {
         }
     });
     return data;
+};
+
+//-----------------------------------------------------------------------------
+// Lighting_Map
+//
+
+function Lighting_Map() {
+    this.initialize.apply(this, arguments);
+}
+
+Lighting_Map.prototype = Object.create(Lighting_Data.prototype);
+Lighting_Map.prototype.constructor = Lighting_Map;
+
+Lighting_Map.prototype.initialize = function(mapId) {
+    this._mapId = mapId;
+    var path = StorageManager.localContentPath() + 'data/';
+    var file = 'Map%1lighting.json'.format(mapId.padZero(3));
+    this._file = path + file;
+};
+
+//-----------------------------------------------------------------------------
+// Lighting_Battle
+//
+
+function Lighting_Battle() {
+    this.initialize.apply(this, arguments);
+}
+
+Lighting_Battle.prototype = Object.create(Lighting_Data.prototype);
+Lighting_Battle.prototype.constructor = Lighting_Battle;
+
+Lighting_Battle.prototype.initialize = function(mapId) {
+    this._mapId = mapId;
+    var path = StorageManager.localContentPath() + 'data/';
+    var file = 'Map%1BattleLighting.json'.format(mapId.padZero(3));
+    this._file = path + file;
 };
 
 //=============================================================================
@@ -1692,21 +1761,6 @@ Game_Editor.prototype.getLightFromClipboard = function() {
 Game_Editor.prototype.hasClipboard = function() {
     return (Object.keys(this._clipboardData).length !== 0 || this._clipboardData.constructor !== Object)
         && this._clipboardData != null;
-};
-
-//-----------------------------------------------------------------------------
-// Spriteset_Map
-//
-// The set of sprites on the map screen.
-
-Spriteset_Map.prototype.createUpperLayer = function() {
-    Spriteset_Base.prototype.createUpperLayer.call(this);
-    this.createLightingToolLayer();
-};
-
-Spriteset_Map.prototype.createLightingToolLayer = function() {
-    this._lightIconsSurface = new LightIconsSurface();
-    this.addChild(this._lightIconsSurface);
 };
 
 //-----------------------------------------------------------------------------
@@ -2476,7 +2530,8 @@ var FLZ_LightingTool_Graphics_copyPaste_onKeyDown = Graphics._onKeyDown;
 Graphics._onKeyDown = function(event) {
     if ($gameEditor == null || !$gameEditor.lightingTool.isFrozen()) {
         if (event.ctrlKey || event.metaKey) {
-            if (GameEditor.ACTIVE && SceneManager._scene instanceof Scene_Map) {
+            if (GameEditor.ACTIVE && (SceneManager._scene instanceof Scene_Map
+                    || SceneManager._scene instanceof Scene_Battle)) {
                 switch (event.keyCode) {
                     case 67: // C
                         event.preventDefault();
@@ -2510,7 +2565,8 @@ Graphics._onKeyDown = function(event) {
                 }
             }
         } else if (!event.altKey) {
-            if (GameEditor.ACTIVE && SceneManager._scene instanceof Scene_Map) {
+            if (GameEditor.ACTIVE && (SceneManager._scene instanceof Scene_Map
+                    || SceneManager._scene instanceof Scene_Battle)) {
                 switch (event.keyCode) {
                     case 46:
                     case 8: // Delete / Backspace

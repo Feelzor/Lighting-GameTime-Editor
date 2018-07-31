@@ -3,7 +3,7 @@
 //=============================================================================
 
 /*:
- * @plugindesc v1.2.0 The core for plugins that have an in-game editor.
+ * @plugindesc v1.2.1 The core for plugins that have an in-game editor.
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @param History Length
@@ -15,6 +15,9 @@
  * ============================================================================
  * Changelog
  * ============================================================================
+ *
+ * Version 1.2.1:
+ * + Support editor during battle
  *
  * Version 1.2.0:
  * + Add an History of changes
@@ -76,7 +79,7 @@ Graphics._onKeyDown = function(event) {
             case 9: // Tab
                 event.preventDefault();
                 if ($gameTemp.isPlaytest()) {
-                    if (SceneManager._scene instanceof Scene_Map) {
+                    if (SceneManager._scene instanceof Scene_Map || SceneManager._scene instanceof Scene_Battle) {
                         $gameEditor.toggle();
                     }
                 }
@@ -113,6 +116,16 @@ Scene_Map.prototype.onMapLoaded = function() {
     this.createDisplayObjects();
     $gameEditor = new Game_Editor;
     this.addChild($gameEditor);
+};
+
+//-----------------------------------------------------------------------------
+// Scene_Battle
+//
+// The scene class of the battle screen.
+var GameEditor_Scene_Battle_create = Scene_Battle.prototype.create;
+Scene_Battle.prototype.create = function() {
+    GameEditor_Scene_Battle_create.call(this);
+    if (!DataManager.isBattleTest()) this.addChild($gameEditor);
 };
 
 //-----------------------------------------------------------------------------
