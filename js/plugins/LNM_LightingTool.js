@@ -8,7 +8,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 //=============================================================================
 /*:
- * @plugindesc v1.6.0 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
+ * @plugindesc v1.7.0 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @requiredAssets img/editor/Lights
@@ -212,6 +212,9 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * flickIntensity: (integer) Intensity for flick animation
  * flickSpeed: (integer) Speed for flick animation
  *
+ * You can set the default power status to off by simply adding .turnOff() at
+ * the end of the line.
+ *
  * -- Examples:
  * Ambient
  * Light(default, 5.0, 28, 1.0)
@@ -226,6 +229,11 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * You can also create default lights by simply typing Torch, Bonfire or
  * Ambient in the field “Note”.
  *
+ * Adding custom lights to enemies
+ * For battles, you may want enemies to hold a light. Simply do so by writing
+ * in the notes part <Light:yourLight>. Just replace yourLight with the same
+ * pattern than for event lights.
+ *
  * ============================================================================
  * Commands
  * ============================================================================
@@ -235,6 +243,15 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * lights, the id starts with an e and is followed by the id of the event
  * (without the first 0). For example, the light for event 0042 will have id
  * “e42”.
+ * You can also select multiple ids. Specifying “a-b” as an id with a and b
+ * being integers will select all lights from a to b, inclusive. To select a
+ * range of event lights, just specify “ea-b”, with a and b being integers.
+ * Non-existing lights ids will be ignored without any warning.
+ * You can specify a list of ids with “[id1, id2, id3]”, and you can use ranges
+ * in that list.
+ * For example, you can select “1-5” for lights from 1 to 5, “e4-9” for event
+ * lights from 4 to 9 and “[1, 4, e6, 9-13, e8-10]” to select lights with id 1,
+ * 4, 9 to 13 and event lights with id 6 and 8 to 10.
  *
  * Light ON light_id - Turns on the light with the corresponding id (can be
  *                        found in the editor).
@@ -293,6 +310,16 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * ============================================================================
  * Changelog
  * ============================================================================
+ *
+ * Version 1.7.0
+ * + Add the possibility to select multiple lights in Light commands.
+ * + Add random flick effect: flick doesn't happen at a specified interval.
+ * + Add the possibility to create lights in battle.
+ * + Add the possibility to create lights that are turned off by default.
+ * * Correct a bug that corrupt save file if a light limit is set on a light
+ * and that light is deleted.
+ * * Correct a bug that causes all the event lights to have id eundefined.
+ * * Correct a bug that causes all the editor lights to have the same id.
  *
  * Version 1.6.0:
  * + Add the possibility to undo (CTRL + Z) and redo (CTRL + Y) actions in
@@ -477,7 +504,7 @@ LightingController.prototype.clear = function() {
 LightingController.prototype.addByType = function(light, x, y) {
     if (!x) x = $gamePlayer.x * $gameMap.tileWidth();
     if (!y) y = $gamePlayer.y * $gameMap.tileHeight();
-    var lightSource = new window[light](x, y);
+    var lightSource = LightSource.initializeFromPreset(GameEditor.TOOLS[light], x, y);
     this.add(lightSource);
     this.save();
 
@@ -619,7 +646,7 @@ LightingController.prototype.getLightById = function(id) {
  */
 LightingController.prototype.getIdOfLight = function(light) {
     for (var key in this.list) {
-        if (this.list[key] === light) return key;
+        if (this.list[key] === light) return Number(key);
     }
 
     return null;
@@ -863,8 +890,29 @@ LightingSurface.prototype.createEditorLights = function(lightSourcesData) {
                 lightSource.setupFlickerAnimation(lightSourceData.flickIntensity,
                     lightSourceData.flickSpeed);
             }
+
+            lightSource.setDefaultOff(lightSourceData.defaultOff || false);
             this.addChild(lightSource);
             $gameLighting.add(lightSource, key);
+        }
+    }
+};
+
+LightingSurface.getParams = function(params) {
+    return params.substring(params.indexOf('(') + 1, params.indexOf(')')).replace(/\s/g, '').split(',');
+};
+
+LightingSurface.prototype.setSourceParams = function(lightSource, paramList) {
+    // Setup animations
+    for (var i = 0; i < paramList.length; i++) {
+        if (!paramList[i]) return;
+        var params = paramList[i];
+        if (params.startsWith("addPulse")) {
+            this.setupPulseAnimationToEvent(lightSource, LightingSurface.getParams(params))
+        } else if (params.startsWith("addFlick")) {
+            this.setupFlickAnimationToEvent(lightSource, LightingSurface.getParams(params))
+        } else if (params.startsWith("turnOff")) {
+            lightSource.setDefaultOff(true);
         }
     }
 };
@@ -874,115 +922,81 @@ LightingSurface.prototype.addLightSourceToEnemy = function(type, enemy, id) {
     if (!String(id).startsWith('e')) id = 'e' + id;
     var x = enemy.screenX();
     var y = enemy.screenY();
-
-
     var lightSource;
-    switch (type) {
-        case "Bonfire":
-            lightSource = new LightSourceEnemy.initializeFromPreset(GameEditor.TOOLS.Bonfire, id, enemy);
-            break;
-        case "Torch":
-            lightSource = new LightSourceEnemy.initializeFromPreset(GameEditor.TOOLS.Torch, id, enemy);
-            break;
-        case "Ambient":
-            lightSource = new LightSourceEnemy.initializeFromPreset(GameEditor.TOOLS.Ambient, id, enemy);
-            break;
-        default:
-            var customType = type.slice(0, 5);
-            if (customType !== "Light") return;
-            var lightConfig = type.split(').');
-            if (lightConfig[0]) {
-                // Creates custom light
-                var params = lightConfig[0];
-                var temp = params.replace('Light(', '');
-                params = temp.split(',');
-                // Clean parameters
-                var filename = String(params[0]);
-                var scale = new PIXI.Point(parseFloat(params[1]), parseFloat(params[1]));
-                var hue = parseInt(params[2]);
-                var alpha = parseFloat(params[3]);
-                lightSource = new LightSourceEnemy(filename, x, y, hue, scale, alpha, id);
-            }
-            // Setup animations
-            for (var i = 1; i < lightConfig.length; i++) {
-                if (!lightConfig[i]) return;
-                var params = lightConfig[i];
-                var animationToSetup = params.slice(0, 8);
-                if (animationToSetup === "addPulse") {
-                    lightSource = this.setupPulseAnimationToEvent(lightSource, params)
-                } else if (animationToSetup === "addFlick") {
-                    lightSource = this.setupFlickAnimationToEvent(lightSource, params)
-                }
-            }
-            break;
+    var params;
+    var configStartIndex = type.indexOf('.') + 1;
+
+    if (type.startsWith("Bonfire"))
+        lightSource = new LightSourceEnemy.initializeFromPreset(GameEditor.TOOLS.Bonfire, id, enemy);
+    else if (type.startsWith("Torch"))
+        lightSource = new LightSourceEnemy.initializeFromPreset(GameEditor.TOOLS.Torch, id, enemy);
+    else if (type.startsWith("Ambient"))
+        lightSource = new LightSourceEnemy.initializeFromPreset(GameEditor.TOOLS.Ambient, id, enemy);
+    else if (type.startsWith("Light")) {
+        configStartIndex = type.indexOf(')') + 2;
+        params = LightingSurface.getParams(type);
+        if (params.length < 4) return;
+
+        var filename = String(params[0]);
+        var scale = new PIXI.Point(parseFloat(params[1]), parseFloat(params[1]));
+        var hue = parseInt(params[2]);
+        var alpha = parseFloat(params[3]);
+        lightSource = new LightSourceEnemy(filename, x, y, hue, scale, alpha, id);
+    } else return;
+
+    if (configStartIndex < type.length) {
+        var lightConfig = type.substring(configStartIndex).split(/\.(?=[a-zA-Z])/);
+        this.setSourceParams(lightSource, lightConfig);
     }
+
     this.addChild(lightSource);
-    $gameLighting.eventList[id] = lightSource;
+    $gameLighting.eventList[id.substring(1)] = lightSource;
 };
 
-LightingSurface.prototype.addLightSourceToEvent = function(type, x, y, eventId) {
-    if (!type) return;
+LightingSurface.prototype.addLightSourceToEvent = function(note, x, y, eventId) {
+    if (!note) return;
     var lightSource;
-    switch (type) {
-        case "Bonfire":
-            lightSource = new LightSourceEvent.initializeFromPreset(GameEditor.TOOLS.Bonfire, x, y, eventId);
-            break;
-        case "Torch":
-            lightSource = new LightSourceEvent.initializeFromPreset(GameEditor.TOOLS.Torch, x, y, eventId);
-            break;
-        case "Ambient":
-            lightSource = new LightSourceEvent.initializeFromPreset(GameEditor.TOOLS.Ambient, x, y, eventId);
-            break;
-        default:
-            var customType = type.slice(0, 5);
-            if (customType !== "Light") return;
-            var lightConfig = type.split(').');
-            if (lightConfig[0]) {
-                // Creates custom light
-                var params = lightConfig[0];
-                var temp = params.replace('Light(', '');
-                params = temp.split(',');
-                // Clean parameters
-                var filename = String(params[0]);
-                var scale = new PIXI.Point(parseFloat(params[1]), parseFloat(params[1]));
-                var hue = parseInt(params[2]);
-                var alpha = parseFloat(params[3]);
-                lightSource = new LightSourceEvent(filename, x, y, hue, scale, alpha, eventId);
-            }
-            // Setup animations
-            for (var i = 1; i < lightConfig.length; i++) {
-                if (!lightConfig[i]) return;
-                var params = lightConfig[i];
-                var animationToSetup = params.slice(0, 8);
-                if (animationToSetup === "addPulse") {
-                    lightSource = this.setupPulseAnimationToEvent(lightSource, params)
-                } else if (animationToSetup === "addFlick") {
-                    lightSource = this.setupFlickAnimationToEvent(lightSource, params)
-                }
-            }
-            break;
+    var params;
+    var configStartIndex = note.indexOf('.') + 1;
+
+    if (note.startsWith("Bonfire"))
+        lightSource = new LightSourceEvent.initializeFromPreset(GameEditor.TOOLS.Bonfire, x, y, eventId);
+    else if (note.startsWith("Torch"))
+        lightSource = new LightSourceEvent.initializeFromPreset(GameEditor.TOOLS.Torch, x, y, eventId);
+    else if (note.startsWith("Ambient"))
+        lightSource = new LightSourceEvent.initializeFromPreset(GameEditor.TOOLS.Ambient, x, y, eventId);
+    else if (note.startsWith("Light")) {
+        configStartIndex = note.indexOf(')') + 2;
+        params = LightingSurface.getParams(note);
+        if (params.length < 4) return;
+
+        var filename = String(params[0]);
+        var scale = new PIXI.Point(parseFloat(params[1]), parseFloat(params[1]));
+        var hue = parseInt(params[2]);
+        var alpha = parseFloat(params[3]);
+        lightSource = new LightSourceEvent(filename, x, y, hue, scale, alpha, eventId);
+    } else return;
+
+    if (configStartIndex < note.length) {
+        var lightConfig = note.substring(configStartIndex).split(/\.(?=[a-zA-Z])/);
+        this.setSourceParams(lightSource, lightConfig);
     }
+
     this.addChild(lightSource);
     $gameLighting.eventList[eventId] = lightSource;
 };
 
 LightingSurface.prototype.setupPulseAnimationToEvent = function(lightSource, params) {
-    var temp = params.replace('addPulse(', '');
-    params = temp.split(',');
     var pulseMin = parseFloat(params[0]);
     var pulseMax = parseFloat(params[1]);
     var pulseSpeed = parseInt(params[2]);
     lightSource.setupPulseAnimation(pulseMin, pulseMax, pulseSpeed);
-    return lightSource;
 };
 
 LightingSurface.prototype.setupFlickAnimationToEvent = function(lightSource, params) {
-    var temp = params.replace('addFlick(', '');
-    params = temp.split(',');
     var flickIntensity = parseInt(params[0]);
     var flickSpeed = parseInt(params[1]);
     lightSource.setupFlickerAnimation(flickIntensity, flickSpeed);
-    return lightSource;
 };
 
 LightingSurface.prototype.update = function() {    
@@ -1035,6 +1049,7 @@ LightSource.prototype.constructor = LightSource;
 LightSource.prototype.initialize = function(filename, x, y, hue, scale, alpha, index) {
     Sprite.prototype.initialize.call(this);
     this.id = index;
+    this.defaultOff = false;
     this._off = !this.getTempData("powered", true);
     this.bitmap = ImageManager.loadLight(filename);
     this.filename = filename;
@@ -1074,8 +1089,17 @@ LightSource.prototype.getTempData = function(dataName, defaultValue) {
     return $gameLighting.lightData.getData(this.getId(), dataName, defaultValue);
 };
 
+LightSource.prototype.hasTempData = function(dataName) {
+    return $gameLighting.lightData.getData(this.getId(), dataName, undefined) != null;
+};
+
 LightSource.prototype.removeTempData = function(dataName) {
     $gameLighting.lightData.removeData(this.getId(), dataName);
+};
+
+LightSource.prototype.setDefaultOff = function(state) {
+    this.defaultOff = state;
+    if (!this.hasTempData("powered")) this._off = state;
 };
 
 LightSource.prototype.turnOff = function() {
@@ -1351,7 +1375,8 @@ LightSource.prototype.getData = function() {
         pulseSpeed: this.pulseSpeed,
         flickerAnimation: this.flickerAnimation,
         flickIntensity: this.flickIntensity,
-        flickSpeed: this.flickSpeed
+        flickSpeed: this.flickSpeed,
+        defaultOff: this.defaultOff
     };
 };
 
@@ -1362,6 +1387,7 @@ LightSource.prototype.setData = function(data) {
     this.hue = data['hue'];
     this.oscale = data['scale'];
     this.oalpha = data['alpha'];
+    this.setDefaultOff(data['defaultOff'] || false);
     
     if (data['pulseAnimation']) {
         this.setupPulseAnimation(data['pulseMin'], data['pulseMax'], data['pulseSpeed']);
@@ -1403,7 +1429,7 @@ LightSource.initializeFromPreset = function(preset, x, y, id, CalledClass) {
 
 
 //-----------------------------------------------------------------------------
-// LightSourceEvent
+// LightSourceEnemy
 //
 //
 
@@ -1718,7 +1744,7 @@ Game_Editor.prototype._setupLightingEditor = function() {
         var spacing = 32;
         var y = spacing * i;
         return new ButtonText(20, 20 + y, $lights[i], function() {
-            var lightSource = $gameLighting.addByType($lights[i] + 'Light');
+            var lightSource = $gameLighting.addByType($lights[i]);
             $gameEditor.lightingTool.setLight(lightSource);
 
             EditorHistory.addToHistory({
@@ -1851,11 +1877,11 @@ Lighting_Tool.prototype._createButtons = function() {
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 169, ' < ', function() {
-        _this._switchPulseAnimation();
+        _this._togglePulseAnimation();
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 169, ' > ', function() {
-        _this._switchPulseAnimation();
+        _this._togglePulseAnimation();
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 196, ' < ', function() {
@@ -1907,11 +1933,11 @@ Lighting_Tool.prototype._createButtons = function() {
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 290, ' < ', function() {
-        _this._switchFlickerAnimation();
+        _this._toggleFlickerAnimation();
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 38, 290, ' > ', function() {
-        _this._switchFlickerAnimation();
+        _this._toggleFlickerAnimation();
         $gameLighting.save();
     }, true));
     this.addChild(new ButtonText(x - 70, 317, ' < ', function() {
@@ -1946,7 +1972,15 @@ Lighting_Tool.prototype._createButtons = function() {
         $gameEditor.lightingTool.lightSource.increaseFlickSpeed(0.05);
         $gameLighting.save();
     }, true));
-    this.addChild(new ButtonText(x - 48, 385, 'null', function() {
+    this.addChild(new ButtonText(x - 70, 385, ' < ', function() {
+        _this._toggleDefaultPower();
+        $gameLighting.save();
+    }, true));
+    this.addChild(new ButtonText(x - 38, 385, ' > ', function() {
+        _this._toggleDefaultPower();
+        $gameLighting.save();
+    }, true));
+    this.addChild(new ButtonText(x - 48, 415, 'null', function() {
         EditorHistory.addHueChange($gameEditor.lightingTool.lightSource);
         $gameEditor.lightingTool.lightSource.hue = null;
         $gameEditor.lightingTool.lightSource.tint = 0xFFFFFF;
@@ -1982,7 +2016,7 @@ Lighting_Tool.prototype._createButtons = function() {
     }));
 };
 
-Lighting_Tool.prototype._switchPulseAnimation = function() {
+Lighting_Tool.prototype._togglePulseAnimation = function() {
     if ($gameEditor.lightingTool.lightSource.pulseAnimation) {
         EditorHistory.addToHistory({
             type: "PULSE",
@@ -2005,7 +2039,7 @@ Lighting_Tool.prototype._switchPulseAnimation = function() {
     }
 };
 
-Lighting_Tool.prototype._switchFlickerAnimation = function() {
+Lighting_Tool.prototype._toggleFlickerAnimation = function() {
     if ($gameEditor.lightingTool.lightSource.flickerAnimation) {
         EditorHistory.addToHistory({
             type: "FLICKER",
@@ -2025,6 +2059,16 @@ Lighting_Tool.prototype._switchFlickerAnimation = function() {
         });
         $gameEditor.lightingTool.lightSource.setupFlickerAnimation();
     }
+};
+
+Lighting_Tool.prototype._toggleDefaultPower = function() {
+    var newValue = !$gameEditor.lightingTool.lightSource.defaultOff;
+    $gameEditor.lightingTool.lightSource.setDefaultOff(newValue);
+    EditorHistory.addToHistory({
+        type: "POWER",
+        value: newValue,
+        sourceId: $gameLighting.getIdOfLight($gameEditor.lightingTool.lightSource)
+    })
 };
 
 Lighting_Tool.prototype.openNumberInput = function(text, number, callback) {
@@ -2140,7 +2184,10 @@ Lighting_Tool.prototype._createLabels = function() {
     });
     this.addChild(this.labelFlickSpeed);
 
-    this.labelHue = new Label(x, 400, 'HUE: null', 'right', null, null, function() {
+    this.labelPower = new Label(x, 400, 'Powered: true', 'right');
+    this.addChild(this.labelPower);
+
+    this.labelHue = new Label(x, 425, 'HUE: null', 'right', null, null, function() {
         if (!_this.lightSource.flickerAnimation) return;
         _this.openNumberInput("Hue", _this.lightSource.hue, function(number) {
             EditorHistory.addHueChange(_this.lightSource);
@@ -2182,6 +2229,7 @@ Lighting_Tool.prototype.updateData = function() {
     this.labelFlickIntensity.setText('flickIntensity: ' + this.lightSource.flickIntensity);
     this.labelFlickSpeed.setText('flickSpeed: ' + this.lightSource.flickSpeed);
     this.labelHue.setText('HUE: ' + this.lightSource.hue);
+    this.labelPower.setText('Powered: ' + !this.lightSource.defaultOff);
     if (this.lightSource.hue != null) this.sliderHue.setValue(this.lightSource.hue);
 };
 
@@ -2438,6 +2486,8 @@ EditorHistory.onUndo = function(action) {
             if (action.value === $gameEditor.lightingTool.lightSource) $gameEditor.lightingTool.hide();
             $gameLighting.list.nextId--;
             break;
+        case "POWER":
+            source.setDefaultOff(!action.value);
         default:
             FLZ_LightingTool_EditorHistory_onUndo.call(this, action);
             return;
@@ -2514,6 +2564,8 @@ EditorHistory.onRedo = function(action) {
             $gameLighting.add(action.source);
             $gameEditor.lightingTool.setLight(action.source);
             break;
+        case "POWER":
+            source.setDefaultOff(action.value);
         default:
             FLZ_LightingTool_EditorHistory_onRedo.call(this, action);
             return;
