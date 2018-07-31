@@ -1466,7 +1466,7 @@ LightSourceEvent.prototype = Object.create(LightSource.prototype);
 LightSourceEvent.prototype.constructor = LightSourceEvent;
 
 LightSourceEvent.prototype.initialize = function(filename, x, y, hue, scale, alpha, eventId) {
-    LightSource.prototype.initialize.call(this, filename, x, y, hue, scale, alpha, "e" + String(this.eventId));
+    LightSource.prototype.initialize.call(this, filename, x, y, hue, scale, alpha, "e" + String(eventId));
     this.eventId = eventId;
     this.ox = this.getOriginX(x);
     this.oy = this.getOriginY(y);
