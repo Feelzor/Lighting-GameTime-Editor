@@ -854,7 +854,7 @@ LightingSurface.prototype.createEditorLights = function(lightSourcesData) {
             var lightSourceData = lightSourcesData[key];
             var lightSource = new LightSource(lightSourceData.filename,
                 lightSourceData.x, lightSourceData.y, lightSourceData.hue,
-                lightSourceData.scale, lightSourceData.alpha, $gameLighting.list.nextId);
+                lightSourceData.scale, lightSourceData.alpha, Number(key));
             if (lightSourceData.pulseAnimation === true) {
                 lightSource.setupPulseAnimation(lightSourceData.pulseMin,
                     lightSourceData.pulseMax, lightSourceData.pulseSpeed);
