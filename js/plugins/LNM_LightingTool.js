@@ -682,20 +682,22 @@ Light_Data.prototype.initialize = function(data) {
     this.data = (typeof data !== "undefined") ? data : {};
 };
 
-Light_Data.prototype.getData = function(lightId, dataName, defaultValue) {
-    if (!(lightId in this.data) || !(dataName in this.data[lightId])) return defaultValue;
+Light_Data.prototype.getData = function(mapId, lightId, dataName, defaultValue) {
+    if (!(mapId in this.data) || !(lightId in this.data[mapId]) || !(dataName in this.data[mapId][lightId]))
+        return defaultValue;
 
-    return this.data[lightId][dataName];
+    return this.data[mapId][lightId][dataName];
 };
 
-Light_Data.prototype.setData = function(lightId, dataName, value) {
-    if (!(lightId in this.data)) this.data[lightId] = {};
-    this.data[lightId][dataName] = value;
+Light_Data.prototype.setData = function(mapId, lightId, dataName, value) {
+    if (!(mapId in this.data)) this.data[mapId] = {};
+    if (!(lightId in this.data[mapId])) this.data[mapId][lightId] = {};
+    this.data[mapId][lightId][dataName] = value;
 };
 
-Light_Data.prototype.removeData = function(lightId, dataName) {
-    if (!(lightId in this.data)) this.data[lightId] = {};
-    delete this.data[lightId][dataName];
+Light_Data.prototype.removeData = function(mapId, lightId, dataName) {
+    if (!(mapId in this.data) || !(lightId in this.data[mapId])) return;
+    delete this.data[mapId][lightId][dataName];
 };
 
 //-----------------------------------------------------------------------------
@@ -1085,19 +1087,19 @@ LightSource.prototype.getId = function() {
 };
 
 LightSource.prototype.addTempData = function(dataName, value) {
-    $gameLighting.lightData.setData(this.getId(), dataName, value);
+    $gameLighting.lightData.setData($gameMap.mapId(), this.getId(), dataName, value);
 };
 
 LightSource.prototype.getTempData = function(dataName, defaultValue) {
-    return $gameLighting.lightData.getData(this.getId(), dataName, defaultValue);
+    return $gameLighting.lightData.getData($gameMap.mapId(), this.getId(), dataName, defaultValue);
 };
 
 LightSource.prototype.hasTempData = function(dataName) {
-    return $gameLighting.lightData.getData(this.getId(), dataName, undefined) != null;
+    return $gameLighting.lightData.getData($gameMap.mapId(), this.getId(), dataName, undefined) != null;
 };
 
 LightSource.prototype.removeTempData = function(dataName) {
-    $gameLighting.lightData.removeData(this.getId(), dataName);
+    $gameLighting.lightData.removeData($gameMap.mapId(), this.getId(), dataName);
 };
 
 LightSource.prototype.setDefaultOff = function(state) {
