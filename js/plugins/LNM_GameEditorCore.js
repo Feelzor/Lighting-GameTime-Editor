@@ -3,7 +3,7 @@
 //=============================================================================
 
 /*:
- * @plugindesc v1.2.1 The core for plugins that have an in-game editor.
+ * @plugindesc v1.2.2 The core for plugins that have an in-game editor.
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @param History Length
@@ -15,6 +15,9 @@
  * ============================================================================
  * Changelog
  * ============================================================================
+ *
+ * Version 1.2.2:
+ * * Move the buttons on top left of the screen during battle.
  *
  * Version 1.2.1:
  * + Support editor during battle
@@ -125,7 +128,10 @@ Scene_Map.prototype.onMapLoaded = function() {
 var GameEditor_Scene_Battle_create = Scene_Battle.prototype.create;
 Scene_Battle.prototype.create = function() {
     GameEditor_Scene_Battle_create.call(this);
-    if (!DataManager.isBattleTest()) this.addChild($gameEditor);
+    if (!DataManager.isBattleTest()) {
+        $gameEditor = new Game_Editor;
+        this.addChild($gameEditor);
+    }
 };
 
 //-----------------------------------------------------------------------------
@@ -143,10 +149,13 @@ Game_Editor.prototype.constructor = Game_Editor;
 Game_Editor.prototype.initialize = function() {
     PIXI.Container.call(this);
     this._buttons = 0;
+    this._isBattle = SceneManager._scene instanceof Scene_Battle;
 };
 
 Game_Editor.prototype.addButton = function(filename, callback) {
-    this.addChild(new ButtonImage(44 * this._buttons + 12, Graphics.height - 48, filename, function() {
+    var marginLeft = this._isBattle ? 20 : 12;
+    var y = this._isBattle ? 20 : Graphics.height - 48;
+    this.addChild(new ButtonImage(44 * this._buttons + marginLeft, y, filename, function() {
         callback();
     }));
     this._buttons++;

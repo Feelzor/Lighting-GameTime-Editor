@@ -8,7 +8,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 //=============================================================================
 /*:
- * @plugindesc v1.7.1 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
+ * @plugindesc v1.7.2 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @requiredAssets img/editor/Lights
@@ -310,6 +310,10 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * ============================================================================
  * Changelog
  * ============================================================================
+ *
+ * Version 1.7.2:
+ * * Correct a bug where temporary status are applied to all lights with same
+ * id, no matter what map they are on.
  *
  * Version 1.7.1:
  * * Correct a bug where CTRL + Z crashes the game.
@@ -1741,6 +1745,7 @@ Game_Editor.prototype.initialize = function() {
 };
 
 Game_Editor.prototype._setupLightingEditor = function() {
+    var _this = this;
     this.addButton('Lights', function() {
         $gameEditor.toggleLightingEditor();
     });
@@ -1748,6 +1753,7 @@ Game_Editor.prototype._setupLightingEditor = function() {
     var newButton = function(i) {
         var spacing = 32;
         var y = spacing * i;
+        if (_this._isBattle) y += 48;
         return new ButtonText(20, 20 + y, $lights[i], function() {
             var lightSource = $gameLighting.addByType($lights[i]);
             $gameEditor.lightingTool.setLight(lightSource);
