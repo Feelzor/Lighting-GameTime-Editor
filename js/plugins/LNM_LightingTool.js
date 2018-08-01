@@ -8,7 +8,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 //=============================================================================
 /*:
- * @plugindesc v1.7.0 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
+ * @plugindesc v1.7.1 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @requiredAssets img/editor/Lights
@@ -311,7 +311,10 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * Changelog
  * ============================================================================
  *
- * Version 1.7.0
+ * Version 1.7.1:
+ * * Correct a bug where CTRL + Z crashes the game.
+ *
+ * Version 1.7.0:
  * + Add the possibility to select multiple lights in Light commands.
  * + Add random flick effect: flick doesn't happen at a specified interval.
  * + Add the possibility to create lights in battle.
@@ -631,7 +634,7 @@ LightingController.prototype.getLightArrayById = function(ids) {
  * @return {LightSource | LightSourceEvent}
  */
 LightingController.prototype.getLightById = function(id) {
-    if (id.toLowerCase().startsWith("e")) {
+    if (String(id).toLowerCase().startsWith("e")) {
         id = id.substring(1);
         return this.eventList[Number(id)];
     }
@@ -642,11 +645,11 @@ LightingController.prototype.getLightById = function(id) {
 /**
  * Get the id of the light
  * @param {LightSource} light The light to search, mustn't be an event light
- * @returns {int|null} The id of the light
+ * @returns {string|null} The id of the light
  */
 LightingController.prototype.getIdOfLight = function(light) {
     for (var key in this.list) {
-        if (this.list[key] === light) return Number(key);
+        if (this.list[key] === light) return key;
     }
 
     return null;
@@ -881,7 +884,7 @@ LightingSurface.prototype.createEditorLights = function(lightSourcesData) {
             var lightSourceData = lightSourcesData[key];
             var lightSource = new LightSource(lightSourceData.filename,
                 lightSourceData.x, lightSourceData.y, lightSourceData.hue,
-                lightSourceData.scale, lightSourceData.alpha, Number(key));
+                lightSourceData.scale, lightSourceData.alpha, key);
             if (lightSourceData.pulseAnimation === true) {
                 lightSource.setupPulseAnimation(lightSourceData.pulseMin,
                     lightSourceData.pulseMax, lightSourceData.pulseSpeed);
