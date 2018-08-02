@@ -7,7 +7,7 @@ var $gameTime = null;
 
 //=============================================================================
 /*:
- * @plugindesc v1.5.0 Adds control of time to the game, and night / day
+ * @plugindesc v1.5.1 Adds control of time to the game, and night / day
  * cycle. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
@@ -309,6 +309,10 @@ var $gameTime = null;
  * Changelog
  * ============================================================================
  *
+ * Version 1.5.1:
+ * * Correct a bug where opening and closing the Game Editor resets the tint.
+ * * Correct a bug where using Time PAUSE and then Time PLAY resets the tint.
+ *
  * Version 1.5.0:
  * + Add the possibility to use Time SET xx:xx instead of Time SET xx xx
  * + Add the possibility to keep the tint during battle (can be disabled in
@@ -483,11 +487,12 @@ GameTime.prototype.tint = function(index) {
 
 GameTime.prototype.play = function() {
     this._pause = false;
-    this._pauseTint = false;
+    if (this._unpauseTint) this._pauseTint = false;
 };
 
 GameTime.prototype.pause = function() {
     this._pause = true;
+    this._unpauseTint = !this._pauseTint;
 };
 
 GameTime.prototype.getClock = function() {

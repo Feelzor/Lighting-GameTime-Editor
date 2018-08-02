@@ -8,7 +8,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 //=============================================================================
 /*:
- * @plugindesc v1.7.2 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
+ * @plugindesc v1.7.3 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @requiredAssets img/editor/Lights
@@ -310,6 +310,9 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * ============================================================================
  * Changelog
  * ============================================================================
+ *
+ * Version 1.7.3:
+ * * Correct a bug where the Light limits are global to all the maps.
  *
  * Version 1.7.2:
  * * Correct a bug where temporary status are applied to all lights with same
