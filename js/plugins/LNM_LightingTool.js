@@ -2654,13 +2654,16 @@ function Light_Limit() {
 Light_Limit.prototype = Object.create(Time_Limit.prototype);
 Light_Limit.prototype.constructor = Light_Limit;
 
-Light_Limit.prototype.initialize = function(timeBeginIn, timeEndIn, lightIdIn) {
+Light_Limit.prototype.initialize = function(timeBeginIn, timeEndIn, mapIdIn, lightIdIn) {
     Time_Limit.prototype.initialize.call(this, timeBeginIn, timeEndIn);
+    this.mapId = mapIdIn;
     this.lightId = lightIdIn;
     this._lastValue = -1;
 };
 
 Light_Limit.prototype.updateValue = function(value) {
+    if ($gameMap.mapId() !== this.mapId) return;
+
     if (this._lastValue !== value) {
         this._lastValue = value;
         var light = $gameLighting.getLightById(this.lightId);
@@ -2729,7 +2732,7 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 lightArray = $gameLighting.getIdArray(args[3]);
                 lightArray.forEach(function(lightId) {
                     if ($gameLighting.getLightById(lightId) != null)
-                        $gameTime.addLightLimit(new Light_Limit(timeBegin, timeEnd, lightId));
+                        $gameTime.addLightLimit(new Light_Limit(timeBegin, timeEnd, $gameMap.mapId(), lightId));
                 });
                 break;
             case 'hue':
