@@ -8,7 +8,7 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
 
 //=============================================================================
 /*:
- * @plugindesc v1.7.3 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
+ * @plugindesc v1.7.4 Tool to add lighting to maps. Requires LNM_GameEditorCore.js
  * @author Sebastián Cámara, continued by FeelZoR
  *
  * @requiredAssets img/editor/Lights
@@ -310,6 +310,9 @@ var $lights = ['Ambient', 'Torch', 'Bonfire'];
  * ============================================================================
  * Changelog
  * ============================================================================
+ *
+ * Version 1.7.4:
+ * * Correct a bug where the lights cannot be loaded in a deployed game.
  *
  * Version 1.7.3:
  * * Correct a bug where the Light limits are global to all the maps.
@@ -860,8 +863,7 @@ LightingSurface.prototype._createLights = function() {
         }
     }
     // From editor
-    this.createEditorLights($gameMap.getLightingData(this));
-
+    $gameMap.getLightingData(this);
     $gameLighting.checkPlayerTorch();
 };
 
@@ -876,10 +878,19 @@ LightingSurface.prototype._createBattleLights = function() {
     }
 
     // From editor
-    this.createEditorLights($gameMap.getBattleLightingData(this));
+    $gameMap.getBattleLightingData(this);
 };
 
 LightingSurface.prototype.createEditorLights = function(lightSourcesData) {
+    if (Array.isArray(lightSourcesData)) {
+        var dataCopy = lightSourcesData;
+        lightSourcesData = {};
+        for (var i = 0; i < dataCopy.length; i++) {
+            lightSourcesData[i] = dataCopy[i];
+        }
+        lightSourcesData.nextId = dataCopy.length;
+    }
+
     if (lightSourcesData) {
         var keyArray = Object.keys(lightSourcesData);
         for (var i = 0; i < keyArray.length; i++) {
@@ -1592,31 +1603,11 @@ Game_Map.prototype.setup = function(mapId) {
 };
 
 Game_Map.prototype.getLightingData = function(instance) {
-    var data = this._lightingMapData.load(instance);
-    if (Array.isArray(data)) {
-        var dataCopy = data;
-        data = {};
-        for (var i = 0; i < dataCopy.length; i++) {
-            data[i] = dataCopy[i];
-        }
-        data.nextId = dataCopy.length;
-    }
-
-    return data;
+    this._lightingMapData.load(instance);
 };
 
 Game_Map.prototype.getBattleLightingData = function(instance) {
-    var data = this._lightingBattleData.load(instance);
-    if (Array.isArray(data)) {
-        var dataCopy = data;
-        data = {};
-        for (var i = 0; i < dataCopy.length; i++) {
-            data[i] = dataCopy[i];
-        }
-        data.nextId = dataCopy.length;
-    }
-
-    return data;
+    this._lightingBattleData.load(instance);
 };
 
 Game_Map.prototype.saveLightingData = function() {
@@ -1657,34 +1648,22 @@ Lighting_Data.prototype.initialize = function() {
 };
 
 Lighting_Data.prototype.load = function(instance) {
-    try {
-        var fs = require('fs');
-        if (fs.existsSync(this._file)) {
-            var file = fs.readFileSync(this._file, 'utf8');
-            return JSON.parse(LZString.decompressFromBase64(file));
-        } else {
-            this.save();
-            return false;
-        }
-    } catch (e) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', "file:///" + this._file);
-        xhr.overrideMimeType('application/json');
-        xhr.onload = function() {
-            var data = JSON.parse(LZString.decompressFromBase64(xhr.responseText));
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', this._file);
+    xhr.overrideMimeType('application/json');
+    xhr.onload = function() {
+        var data = JSON.parse(LZString.decompressFromBase64(xhr.responseText));
 
-            LightingSurface.prototype.createEditorLights.call(instance, data);
-        };
-        xhr.send();
-        return false;
-    }
+        LightingSurface.prototype.createEditorLights.call(instance, data);
+    };
+    xhr.send();
 };
 
 Lighting_Data.prototype.save = function() {
     var fs = require('fs');
     var data = this._generateData();
     var file = JSON.stringify(data);
-    fs.writeFile(this._file, LZString.compressToBase64(file));
+    fs.writeFile(StorageManager.localContentPath() + this._file, LZString.compressToBase64(file));
 };
 
 Lighting_Data.prototype._generateData = function() {
@@ -1712,9 +1691,7 @@ Lighting_Map.prototype.constructor = Lighting_Map;
 
 Lighting_Map.prototype.initialize = function(mapId) {
     this._mapId = mapId;
-    var path = StorageManager.localContentPath() + 'data/';
-    var file = 'Map%1lighting.json'.format(mapId.padZero(3));
-    this._file = path + file;
+    this._file = 'data/Map%1lighting.json'.format(mapId.padZero(3));
 };
 
 //-----------------------------------------------------------------------------
@@ -1730,9 +1707,7 @@ Lighting_Battle.prototype.constructor = Lighting_Battle;
 
 Lighting_Battle.prototype.initialize = function(mapId) {
     this._mapId = mapId;
-    var path = StorageManager.localContentPath() + 'data/';
-    var file = 'Map%1BattleLighting.json'.format(mapId.padZero(3));
-    this._file = path + file;
+    this._file = 'data/Map%1BattleLighting.json'.format(mapId.padZero(3));
 };
 
 //=============================================================================
